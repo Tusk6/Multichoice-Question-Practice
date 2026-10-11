@@ -314,7 +314,9 @@ function panelHTML(r) {
   return '<details class="panel"' + (S.panelOpen ? ' open' : '') + '><summary>' + sum + '</summary><div class="pbody">' + groups.map((g) => {
     const done = g.cells.filter((i) => r.sel[i] >= 0).length;
     const isCur = g.cells.includes(r.idx);
-    return '<div class="cg' + (isCur ? ' cur' : '') + '">' + (r.mode === 'exam' ? '' : '<div class="cg-h"><span>' + esc(g.name) + '</span><span class="cg-c">' + done + '/' + g.cells.length + '</span></div>') +
+    return '<div class="cg' + (isCur ? ' cur' : '') + '">' + (r.mode === 'exam' ? '' : '<div class="cg-h"><span>' + esc(g.name) + '</span><span class="cg-c">' + done + '/' + g.cells.length + '</span></div>' +
+        (S.confirmRedo === g.key ? '<div class="confirm box sm"><span>Làm lại phần này? Kết quả ' + done + ' câu đã làm sẽ bị xóa.</span><button type="button" class="btn danger sm" data-act="redoyes" data-id="' + esc(g.key) + '">Làm lại</button><button type="button" class="btn sm" data-act="redono">Hủy</button></div>'
+          : done ? '<button type="button" class="lnk redo-l" data-act="redogrp" data-id="' + esc(g.key) + '">Làm lại phần này</button>' : '')) +
       '<div class="sheet">' + g.cells.map((i, j) => {
         const s = r.sel[i], it = r.items[i];
         const cls = 'cell' + (i === r.idx ? ' cur' : '') + (s >= 0 ? (s === it.a ? ' ok' : ' bad') : '');
@@ -798,7 +800,7 @@ function render(scroll) {
 function go(v) {
   if (v === 'home' && S.view !== 'boot' && S.view !== 'quiz') refreshProg();
   if (S.view === 'live' && v !== 'live') stopLive();
-  S.view = v; S.confirmDel = null; S.confirmEnd = false; S.confirmDrop = false;
+  S.view = v; S.confirmRedo = null; S.confirmDel = null; S.confirmEnd = false; S.confirmDrop = false;
   if (v !== 'quiz') { clearInterval(timer); S.rpt = null; }
   render(true);
   if (v === 'quiz') { clearInterval(timer); timer = setInterval(tick, 1000); }
@@ -1072,6 +1074,17 @@ app.addEventListener('click', async (ev) => {
       const r = buildRun({ cid: id, ids });
       if (!r.items.length) { toast('Bài này chưa có câu nào sai.'); break; }
       S.run = r; S.panelOpen = desk(); go('quiz'); putLive({}, true); saveProg(true); break;
+    }
+    case 'redogrp': S.confirmRedo = id; render(false); break;
+    case 'redono': S.confirmRedo = null; render(false); break;
+    case 'redoyes': {
+      const r = S.run;
+      S.confirmRedo = null;
+      let first = -1;
+      r.items.forEach((it, k) => { if (it.cid === id) { if (first < 0) first = k; r.sel[k] = -1; delete r.reported[k]; } });
+      if (first >= 0) { r.idx = first; S.rpt = null; render(false); putLive({}, true); saveProg(true); window.scrollTo(0, 0); toast('Đã xóa kết quả phần này, làm lại từ câu đầu.'); }
+      else render(false);
+      break;
     }
     case 'redo': {
       const R = S.res;
