@@ -1,5 +1,5 @@
 /**
- * Multiple-Choice Question Bank: backend Google Apps Script.
+ * Multichoice - Question Practice: backend Google Apps Script.
  *
  * Lưu mọi dữ liệu vào thư mục Google Drive "Multiple-Choice Question Bank":
  *   - các file đề .docx do admin bỏ vào thư mục này;
@@ -36,21 +36,28 @@ function setup() {
 }
 
 /* ---------- Điểm vào của web app ---------- */
-function doGet() {
-  return json_({ ok: true, data: { name: 'Tô Đáp Án API', version: VERSION } });
-}
-
-function doPost(e) {
+function doGet(e) {
+  const q = e && e.parameter && e.parameter.q;
+  if (!q) return json_({ ok: true, data: { name: 'Multichoice - Question Practice API', version: VERSION } });
+  /* Đường dự phòng cho trình duyệt điện thoại: gọi bằng GET, trả về JSONP (thẻ script, không bị chặn CORS). */
+  const cb = String(e.parameter.callback || '');
   let out;
-  try {
-    const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    out = { ok: true, data: route_(req) };
-  } catch (err) {
-    out = { ok: false, error: String((err && err.message) || err), code: (err && err.code) || 'server' };
+  try { out = handle_(q); } catch (err) { out = { ok: false, error: 'Yêu cầu không hợp lệ.', code: 'bad_request' }; }
+  if (/^[A-Za-z_$][A-Za-z0-9_$]{0,60}$/.test(cb)) {
+    return ContentService.createTextOutput(cb + '(' + JSON.stringify(out) + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return json_(out);
 }
-
+function doPost(e) {
+  return json_(handle_((e && e.postData && e.postData.contents) || '{}'));
+}
+function handle_(text) {
+  try {
+    return { ok: true, data: route_(JSON.parse(text)) };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err), code: (err && err.code) || 'server' };
+  }
+}
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -73,6 +80,14 @@ const PUBLIC_ = {
   me: (r) => readJson_(dataDir_(), 'u_' + id_(r.uid) + '.json', { name: '', runs: [] }),
   saveRun: (r) => saveRun_(id_(r.uid), str_(r.name, 60), cleanRun_(r.run)),
   heartbeat: (r) => heartbeat_(id_(r.uid), r.data || {}),
+  image: (r) => {
+    const o = readJson_(dataDir_(), 'img_' + id_(r.id) + '.json', null);
+    if (!o) throw coded_('not_found', 'Không tìm thấy hình.');
+    return o;
+  },
+  getProgress: (r) => readJson_(dataDir_(), 'pg_' + id_(r.uid) + '.json', null),
+  saveProgress: (r) => saveProgress_(id_(r.uid), r.p || {}),
+  clearProgress: (r) => { const u = id_(r.uid); withLock_(() => trash_(dataDir_(), 'pg_' + u + '.json')); return true; },
   report: (r) => saveReport_(id_(r.uid), r.report || {}),
 };
 
@@ -89,6 +104,13 @@ const ADMIN_ = {
   },
   reports: () => readJson_(dataDir_(), 'reports.json', []),
   resolveReport: (r) => resolveReport_(str_(r.id, 80)),
+  imagesHave: (r) => (r.ids || []).slice(0, 200).map(id_).filter((x) => dataDir_().getFilesByName('img_' + x + '.json').hasNext()),
+  saveImage: (r) => {
+    const d = String(r.d || '');
+    if (d.indexOf('data:image/') !== 0 || d.length > 400000) throw coded_('bad_image', 'Hình không hợp lệ hoặc quá lớn.');
+    writeJson_(dataDir_(), 'img_' + id_(r.id) + '.json', { d: d });
+    return true;
+  },
   driveList: () => driveList_(),
   driveRead: (r) => driveRead_(id_(r.id)),
   driveUpload: (r) => driveUpload_(str_(r.name, 150), String(r.base64 || '')),
@@ -131,7 +153,27 @@ function cleanQ_(q) {
   if (o.length < 2) throw coded_('bad_question', 'Mỗi câu cần ít nhất 2 đáp án.');
   const a = int_(q.a, 100);
   if (a >= o.length) throw coded_('bad_question', 'Đáp án đúng nằm ngoài danh sách đáp án.');
-  return { id: id_(q.id), q: str_(q.q, 4000), o: o, a: a, e: str_(q.e, 3000), s: q.s ? 1 : 0 };
+  const out = { id: id_(q.id), q: str_(q.q, 4000), o: o, a: a, e: str_(q.e, 3000), s: q.s ? 1 : 0 };
+  if (q.i && q.i.length) { out.i = q.i.slice(0, 6).map(id_); out.s = 1; }
+  if (q.p) out.p = id_(q.p);
+  return out;
+}
+
+/* Bài đọc của một bài/chương: { id, t: nội dung, i: [mã hình] } */
+function cleanP_(p) {
+  const out = { id: id_(p.id), t: str_(p.t, 12000) };
+  if (p.i && p.i.length) out.i = p.i.slice(0, 6).map(id_);
+  return out;
+}
+function cleanPath_(path) {
+  return Array.isArray(path) && path.length > 1 ? path.slice(0, 6).map((x) => str_(x, 120)) : null;
+}
+function cleanChapter_(c) {
+  const out = { id: id_(c.id), name: str_(c.name, 300), qs: (c.qs || []).map(cleanQ_) };
+  const path = cleanPath_(c.path);
+  if (path) out.path = path;
+  if (c.ps && c.ps.length) out.ps = c.ps.slice(0, 200).map(cleanP_);
+  return out;
 }
 
 function cleanRun_(r) {
@@ -205,7 +247,7 @@ function withLock_(fn) {
 function saveSubject_(m, chapters) {
   const sid = id_(m.id);
   const chs = chapters
-    .map((c) => ({ id: id_(c.id), name: str_(c.name, 200), qs: (c.qs || []).map(cleanQ_) }))
+    .map(cleanChapter_)
     .filter((c) => c.qs.length);
   if (!chs.length) throw coded_('empty', 'Môn này chưa có câu hỏi nào.');
   const meta = {
@@ -216,7 +258,7 @@ function saveSubject_(m, chapters) {
     by: str_(m.by, 60),
     driveId: str_(m.driveId, 80),
     total: chs.reduce((a, c) => a + c.qs.length, 0),
-    chapters: chs.map((c) => ({ id: c.id, name: c.name, n: c.qs.length })),
+    chapters: chs.map((c) => (c.path ? { id: c.id, name: c.name, n: c.qs.length, path: c.path } : { id: c.id, name: c.name, n: c.qs.length })),
   };
   if (!meta.name) throw coded_('bad_name', 'Môn cần có tên.');
   withLock_(() => {
@@ -268,6 +310,23 @@ function saveRun_(uid, name, run) {
 }
 
 /* ---------- Ai đang làm bài (bộ nhớ đệm, tự hết hạn sau 6 giờ) ---------- */
+/* Phần đang làm dở của mỗi người, để mở lại trên thiết bị khác. Lần đầu gửi đủ danh sách câu (items), các lần sau chỉ gửi đáp án đã chọn. */
+function saveProgress_(uid, p) {
+  return withLock_(() => {
+    const dir = dataDir_(), fn = 'pg_' + uid + '.json';
+    const cur = readJson_(dir, fn, null);
+    let rec;
+    if (p.items !== undefined) {
+      rec = { rid: str_(p.rid, 40), sid: str_(p.sid, 64), sname: str_(p.sname, 120), mode: p.mode === 'exam' ? 'exam' : 'chapter', items: str_(p.items, 60000) };
+    } else {
+      if (!cur || cur.rid !== str_(p.rid, 40)) throw coded_('no_progress', 'Chưa có phần đang làm dở để cập nhật.');
+      rec = { rid: cur.rid, sid: cur.sid, sname: cur.sname, mode: cur.mode, items: cur.items };
+    }
+    rec.sel = str_(p.sel, 6000); rec.idx = int_(p.idx, 100000); rec.el = int_(p.el, 1000000000); rec.t = Date.now();
+    writeJson_(dir, fn, rec);
+    return true;
+  });
+}
 function readLive_() {
   try { return JSON.parse(CacheService.getScriptCache().get('live') || '{}'); } catch (e) { return {}; }
 }

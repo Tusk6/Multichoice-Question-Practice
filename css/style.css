@@ -1,4 +1,4 @@
-/* Tô Đáp Án: giao diện giống phiếu tô trắc nghiệm.
+/* Multichoice - Question Practice: giao diện giống phiếu tô trắc nghiệm.
    Một cột trên điện thoại; khi làm bài, cột phiếu trả lời (các ô tròn) nằm bên phải ở màn hình rộng. */
 :root {
   --paper: #F3F5F9;      /* giấy phiếu, xám xanh nhạt */
@@ -162,7 +162,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .chk { display: flex; align-items: center; gap: 10px; padding: 7px 0; cursor: pointer; }
 .chk input { width: 20px; height: 20px; accent-color: var(--pen); flex: none; }
 .chlist { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
-.chrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; border-top: 1px solid var(--line); }
+.chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
 .chrow:first-child { border-top: 0; }
 .chrow input { width: 20px; height: 20px; accent-color: var(--pen); flex: none; }
 .chn { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
@@ -292,4 +292,41 @@ section + section { margin-top: 22px; }
 .tbl tbody tr:first-child td { border-top: 0; }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 20; max-width: min(92vw, 460px); padding: 12px 16px; border-radius: 10px; background: var(--graphite); color: var(--paper); font-size: .92rem; box-shadow: 0 6px 24px rgba(0, 0, 0, .25); }
+/* Chỉ mục nhiều cấp trong danh sách bài */
+.grph { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 14px; background: var(--pen-soft); border-top: 1px solid var(--line); font-weight: 700; font-size: .92rem; color: var(--ink); }
+.grph:first-child { border-top: 0; }
+.grph.d1 { padding-left: 28px; background: var(--paper); }
+.grph.d2, .grph.d3 { padding-left: 42px; background: var(--paper); font-weight: 600; }
+.chrow.in1 { padding-left: 28px; }
+.chrow.in2 { padding-left: 42px; }
+.chrow.in3 { padding-left: 56px; }
+/* Bài đọc nằm phía trên câu hỏi */
+.psg { border: 1px solid var(--line2); border-left: 4px solid var(--pen); border-radius: 10px; background: var(--paper); padding: 10px 14px; margin-bottom: 4px; }
+.psg-h { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pen); margin-bottom: 6px; }
+.psg-t { font-family: var(--f-doc); font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 42vh; overflow: auto; -webkit-overflow-scrolling: touch; }
+.psg summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
+details.psg[open] summary { margin-bottom: 8px; }
+@media (max-width: 560px) { .psg-t { max-height: 36vh; font-size: 1rem; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+.chlab { display: flex; align-items: center; gap: 12px; flex: 1 1 200px; min-width: 0; cursor: pointer; }
+.chlab input { width: 20px; height: 20px; accent-color: var(--pen); flex: none; }
+.chbtn { display: flex; flex-wrap: wrap; gap: 8px; }
+.chbtn.left { margin-top: 8px; }
+.btn.sm { min-height: 34px; padding: 4px 12px; font-size: .85rem; }
+.chsum .chk { padding: 0; min-width: 0; flex: 1; }
+select.inp { appearance: auto; }
+
+.resume { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; padding: 14px 16px; margin-bottom: 20px; border: 1px solid var(--pen); background: var(--pen-soft); border-radius: 12px; }
+.resume > div:first-child { min-width: 0; }
+.resume p { color: var(--ink2); font-size: .9rem; margin-top: 2px; }
+
+/* Hình minh họa */
+.qimgs { display: flex; flex-direction: column; gap: 10px; }
+.qimg { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: zoom-in; align-self: flex-start; }
+.qimg.ph { padding: 24px 18px; background: var(--paper); color: var(--ink2); font-size: .9rem; cursor: pointer; }
+.lb { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 12px; background: rgba(0, 0, 0, .86); cursor: zoom-out; }
+.lb img { max-width: 100%; max-height: 100%; background: #fff; border-radius: 6px; }
+.edimgs { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+.edimg { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; max-width: 100%; }
+.edimg .qimg { max-height: 180px; width: auto; }

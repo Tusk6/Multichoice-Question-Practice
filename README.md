@@ -1,4 +1,4 @@
-# Tô Đáp Án
+# Multichoice - Question Practice
 
 Web luyện đề trắc nghiệm: nạp đề từ file Word (.docx) hoặc dán văn bản, làm từng câu một, đúng/sai hiện màu ngay, có giải thích, thống kê bài/câu sai nhiều, theo dõi ai đang làm bài và bộ sửa lỗi đề.
 
@@ -34,11 +34,66 @@ Giải thích: (tuỳ chọn, có thể nhiều dòng)
 - Chấp nhận một số lỗi gõ thường gặp: "Cầu", thiếu dấu chấm sau chữ cái, nhảy chữ cái, câu hỏi/lựa chọn nhiều dòng.
 - Câu không có dòng đáp án sẽ được gom vào hộp **"Cần bổ sung đáp án"** ngay khi xem trước, chọn đáp án rồi mới lưu.
 
+## Chỉ mục nhiều cấp và bài đọc (môn tiếng Anh)
+
+**Chỉ mục nhiều cấp**: ghi số cấp ngay đầu dòng tiêu đề, dấu `#` rồi số cấp, rồi dấu cách.
+
+```
+#1 UNIT 1: Family life
+#2 Pronunciation (2 câu)
+Câu 1. ...
+#2 Reading
+...
+#1 UNIT 2
+#2 Grammar
+```
+
+- Cấp càng nhỏ càng ở ngoài (`#1` là cấp lớn nhất). Có thể dùng tới `#6`.
+- Mỗi tiêu đề có câu hỏi trực tiếp bên dưới là một "bài" để luyện. Tên đầy đủ là `UNIT 1: Family life › Reading`.
+- Màn hình chọn bài hiện thành nhóm, có nút **Chọn nhóm** để chọn cả UNIT một lần.
+- Đề cũ chỉ dùng "Bài 1", "Chương 2" vẫn đọc bình thường. Có thể ghi thêm số câu trong ngoặc, ví dụ `#2 Reading (5 câu)`.
+
+**Bài đọc kèm nhóm câu hỏi**: ghi bài đọc trước các câu hỏi của nó, theo một trong hai cách.
+
+```
+[PASSAGE]
+Nội dung bài đọc, có thể nhiều đoạn.
+[/PASSAGE]
+Câu 1. ...
+```
+
+hoặc ghi một dòng `Passage: nội dung…` (cũng nhận `Bài đọc:`, `Đoạn văn:`). Bài đọc tự kết thúc khi gặp "Câu N." đầu tiên.
+
+- Bài đọc áp dụng cho mọi câu sau nó, cho đến khi có bài đọc mới hoặc một tiêu đề mới.
+- Khi làm bài, bài đọc hiện phía trên câu hỏi. Khi xáo trộn câu hỏi, các câu cùng một bài đọc luôn đi liền nhau, đúng thứ tự trong file. Đáp án vẫn xáo bình thường.
+- Hình ngay trong khối bài đọc được xem là hình của bài đọc. Hình đặt sau "Câu N." vẫn là hình của câu đó.
+- Admin có thể sửa chữ của bài đọc ngay trong màn hình **Sửa đề** (mở một câu thuộc bài đọc đó).
+- Sau khi cập nhật, hãy triển khai lại Apps Script (Deploy, Manage deployments, New version) và thay các file `js/*.js`, `css/style.css` trên GitHub. Có file mẫu ở `sample/mau-de-tieng-anh.txt`.
+
 ## Bộ sửa lỗi
 
 1. **Khi nhập đề**: hộp "Cần bổ sung đáp án" liệt kê câu thiếu/không hiểu đáp án; chọn đúng rồi lưu (câu bỏ trống sẽ bị bỏ qua).
 2. **Báo lỗi từ người học**: dưới mỗi câu có nút "Báo lỗi" (đáp án sai, sai chính tả, thiếu giải thích...). Admin xem ở **Báo lỗi**, bấm **Sửa** để mở thẳng câu đó.
 3. **Sửa đề**: ở mỗi môn, nút "Sửa đề, sửa lỗi" cho lọc, sửa nội dung/lựa chọn/đáp án/giải thích/cờ không xáo, thêm, xoá câu, đổi tên bài.
+
+## Câu có hình minh họa
+
+- Đặt hình ngay dưới dòng câu hỏi trong file Word, trước các đáp án A, B, C, D. Khi nhập file .docx (chọn từ máy, hoặc chọn từ thư mục Drive khi dùng bản GitHub), web đọc hình và gắn vào đúng câu.
+- Câu có hình luôn **không xáo đáp án**. Hình được thu nhỏ (rộng tối đa 1000px, khoảng 150 KB) và lưu thành file riêng trong thư mục dữ liệu trên Drive. Bấm vào hình để phóng to.
+- Admin có thể thêm hoặc bỏ hình của từng câu trong "Sửa đề".
+- Chưa hỗ trợ: hình trong phần giải thích, công thức Word (equation) và hình vẽ dạng shape không phải ảnh. Khi nhập đề, web sẽ cảnh báo nếu có hình không đọc được.
+- Cần cập nhật `Code.gs` (thêm hành động lưu và đọc hình) rồi triển khai phiên bản mới.
+
+## Làm lại từng bài và đồng bộ đề
+
+- Ở màn hình môn, mỗi bài/chương có nút **Làm bài này** và **Làm lại câu sai (n)** (các câu lần làm gần nhất của bạn bị sai). Ở màn hình kết quả, mỗi bài cũng có nút **Làm lại bài này** và **Làm lại câu sai**.
+- Khi nhập lại file cho một môn đã có (cùng tên môn, hoặc chọn "đồng bộ vào môn đã có"), admin chọn **Đồng bộ theo bài**: bài cùng tên (hoặc cùng số "Bài 3") được cập nhật, bài mới được thêm, bài không có trong file giữ nguyên. Tick bỏ từng bài nếu không muốn cập nhật. Thống kê của các câu không đổi nội dung vẫn được giữ. Chọn **Thay cả môn** nếu muốn xóa nội dung cũ.
+
+## Đồng bộ theo tên và tiếp tục phần đang làm dở
+
+- Cùng một tên thì cùng một tài khoản: nhập tên "T" trên máy tính và cả điện thoại thì kết quả các lượt làm và phần đang làm dở giống nhau. Tên không có mật khẩu, nên hai người trùng tên sẽ dùng chung dữ liệu. Hãy ghi tên đủ phân biệt.
+- Đang làm giữa chừng thì mỗi lần chọn đáp án hoặc chuyển câu, tiến trình được lưu (trên máy và trên Drive). Ở trang chủ có thẻ **Đang làm dở** với nút **Tiếp tục làm** (vào đúng câu, giữ các đáp án đã chọn, giữ thứ tự câu và đáp án đã xáo, tính tiếp thời gian), hoặc **Bỏ phần này**.
+- Cần cập nhật `Code.gs` rồi triển khai phiên bản mới (có thêm 3 hành động getProgress, saveProgress, clearProgress).
 
 ## Triển khai (khoảng 10 phút)
 
@@ -55,7 +110,7 @@ Giải thích: (tuỳ chọn, có thể nhiều dòng)
 1. Mở `js/config.js`, dán URL vào `GAS_URL`.
 2. Tạo repo trên GitHub rồi:
    ```bash
-   git init && git add . && git commit -m "Tô Đáp Án"
+   git init && git add . && git commit -m "Multichoice - Question Practice"
    git branch -M main
    git remote add origin https://github.com/<ten>/<repo>.git
    git push -u origin main
@@ -71,5 +126,6 @@ Giải thích: (tuỳ chọn, có thể nhiều dòng)
 - **Bảo mật**: ADMIN_KEY chỉ bảo vệ các thao tác ghi/quản trị (nhập đề, xoá, xem thống kê, người đang làm bài, báo lỗi). Danh sách đề và nội dung câu hỏi là công khai với ai biết URL Apps Script, vì người học cần đọc được. Đừng commit ADMIN_KEY lên GitHub.
 - **IP**: trình duyệt lấy IP công khai qua dịch vụ ipify rồi gửi cho admin; màn hình nhập tên có thông báo cho người học. Muốn tắt: `COLLECT_IP: false` trong `js/config.js`.
 - **Giới hạn Apps Script**: có hạn mức số lần gọi mỗi ngày và độ trễ vài trăm ms mỗi lượt gọi; đủ cho lớp học/nhóm vài chục đến vài trăm người.
+- **Điện thoại**: nếu `fetch` bị chặn (Safari, trình duyệt trong Zalo/Facebook), web tự chuyển sang đường dự phòng bằng thẻ script (JSONP) và nhớ lại. Vì vậy sau khi cập nhật `Code.gs` phải **triển khai phiên bản mới**. Việc nhập đề (dữ liệu lớn) nên làm trên máy tính.
 - **Thử ở máy**: `python3 -m http.server 8000` rồi mở http://localhost:8000.
 - Kiểm thử: `node tests/parse.test.js` và `node tests/gas.test.js` (giả lập dịch vụ Apps Script).

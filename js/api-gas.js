@@ -17,19 +17,50 @@
 
   const fail = (code, message) => Object.assign(new Error(message), { code, userMessage: message });
 
+  /* Đường dự phòng: nạp kết quả bằng thẻ script (JSONP). Một số trình duyệt điện thoại
+     (Safari, trình duyệt trong Zalo/Facebook) chặn fetch tới Apps Script nhưng vẫn nạp được script. */
+  let cbN = 0;
+  const NETMSG = 'Không kết nối được máy chủ. Hãy kiểm tra mạng và địa chỉ GAS_URL.';
+  function jsonp(body) {
+    return new Promise((resolve, reject) => {
+      const url0 = cfg.GAS_URL + (cfg.GAS_URL.indexOf('?') < 0 ? '?' : '&');
+      const name = '__tda' + Date.now().toString(36) + (++cbN);
+      const url = url0 + 'callback=' + name + '&q=' + encodeURIComponent(body);
+      if (url.length > 7000) { reject(fail('too_big', 'Dữ liệu quá lớn để gửi bằng đường dự phòng. Hãy dùng máy tính.')); return; }
+      const s = document.createElement('script');
+      let t, t2;
+      const done = () => { clearTimeout(t); clearTimeout(t2); delete window[name]; s.remove(); };
+      const bad = (why) => { done(); reject(fail('network', NETMSG + ' [dự phòng: ' + why + ']')); };
+      t = setTimeout(() => bad('quá thời gian chờ'), 25000);
+      window[name] = (j) => { done(); resolve(j); };
+      s.onerror = () => bad('không nạp được script');
+      /* Script nạp xong mà không gọi hàm: máy chủ chưa phải bản Code.gs mới (chưa triển khai phiên bản mới) hoặc trả về trang khác */
+      s.onload = () => { t2 = setTimeout(() => bad('máy chủ chưa trả đúng định dạng, hãy triển khai phiên bản mới của Code.gs'), 1500); };
+      s.src = url;
+      document.head.appendChild(s);
+    });
+  }
+  let viaScript = ls.get('tda.jsonp') === '1';
+
   async function call(action, payload) {
     if (!cfg.GAS_URL) throw fail('no_url', 'Chưa cấu hình GAS_URL trong js/config.js.');
-    let res;
-    try {
-      /* Không đặt header: body dạng chữ giúp trình duyệt gửi "simple request", không bị chặn CORS. */
-      res = await fetch(cfg.GAS_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, uid, key: adminKey }, payload || {})) });
-    } catch (e) {
-      throw fail('network', 'Không kết nối được máy chủ. Hãy kiểm tra mạng và địa chỉ GAS_URL.');
-    }
+    const body = JSON.stringify(Object.assign({ action, uid, key: adminKey }, payload || {}));
     let j;
-    try { j = await res.json(); } catch (e) {
-      throw fail('bad_response', 'Máy chủ trả về dữ liệu lạ. Hãy kiểm tra Apps Script đã triển khai với quyền truy cập "Bất kỳ ai".');
+    if (viaScript) j = await jsonp(body);
+    else {
+      let why = '';
+      try {
+        /* Không đặt header: body dạng chữ giúp trình duyệt gửi "simple request", không bị chặn CORS. */
+        const res = await fetch(cfg.GAS_URL, { method: 'POST', body });
+        j = await res.json();
+      } catch (e) { why = String((e && e.message) || e); }
+      if (why) {
+        /* fetch bị chặn hoặc trả về lạ: thử đường dự phòng, nhớ lại nếu thành công */
+        try { j = await jsonp(body); } catch (e2) { e2.userMessage = e2.message = e2.message + ' [fetch: ' + why + ']'; throw e2; }
+        viaScript = true; ls.set('tda.jsonp', '1');
+      }
     }
+    if (!j || typeof j !== 'object') throw fail('bad_response', 'Máy chủ trả về dữ liệu lạ. Hãy kiểm tra Apps Script đã triển khai với quyền truy cập "Bất kỳ ai".');
     if (!j.ok) throw fail(j.code || 'server', j.error || 'Máy chủ báo lỗi.');
     return j.data;
   }
@@ -60,9 +91,28 @@
     fr.readAsDataURL(file);
   });
 
+  /* Cùng một tên thì cùng một tài khoản: mã người dùng được tính từ tên, nên máy tính và điện thoại
+     nhập cùng tên sẽ thấy cùng kết quả và cùng phần đang làm dở. */
+  const fnv32 = (str) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return (h >>> 0).toString(36);
+  };
+  function uidFromName(name) {
+    const n = String(name || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!n) return '';
+    let hex = '';
+    try { hex = Array.from(new TextEncoder().encode(n).slice(0, 20)).map((b) => (b < 16 ? '0' : '') + b.toString(16)).join(''); } catch (e) { hex = ''; }
+    return 'n' + hex + '-' + fnv32(n) + fnv32(n.split('').reverse().join(''));
+  }
+
   const A = {
     kind: 'gas',
-    uid,
+    get uid() { return uid; },
+    setName(name) {
+      const u = uidFromName(name);
+      if (u) { uid = u; ls.set('tda.uid', u); }
+    },
     canLogin: true,
     canDrive: false,
     storageNote: 'Đề và kết quả được lưu trên Google Drive của admin.',
@@ -99,6 +149,14 @@
     async getMine() { const r = await call('me'); return { runs: (r && r.runs) || [] }; },
     saveRun: (name, run) => call('saveRun', { name, run }),
     getStats: (sid) => call('stats', { sid }),
+
+    async hasImages(ids) { return (await call('imagesHave', { ids })) || []; },
+    saveImage: (id, d) => call('saveImage', { id, d }),
+    async getImage(id) { const r = await call('image', { id }); return (r && r.d) || ''; },
+
+    async getProgress() { return (await call('getProgress')) || null; },
+    saveProgress: (p) => call('saveProgress', { p }),
+    clearProgress: () => call('clearProgress'),
 
     async heartbeat(data) { return call('heartbeat', { data: Object.assign({ ip: await getIp() }, data) }); },
     getLive: () => call('live'),

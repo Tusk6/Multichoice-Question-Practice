@@ -59,7 +59,7 @@ const ctx = {
     base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),
     newBlob: (bytes, mime, name) => ({ _bytes: bytes, _mime: mime, _name: name }),
   },
-  ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (s) => ({ _s: s, setMimeType() { return this; } }) },
+  ContentService: { MimeType: { JSON: 'json', JAVASCRIPT: 'js' }, createTextOutput: (s) => ({ _s: s, setMimeType() { return this; } }) },
 };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../apps-script/Code.gs'), 'utf8'), ctx);
@@ -138,6 +138,33 @@ assert.strictEqual(reps[0].done, false);
 ok({ action: 'resolveReport', key, id: 'r1' });
 assert.strictEqual(ok({ action: 'reports', key })[0].done, true);
 
+/* Phần đang làm dở */
+assert.strictEqual(ok({ action: 'getProgress', uid: 'u1' }), null);
+bad({ action: 'saveProgress', uid: 'u1', p: { rid: 'r1', sel: '1x', idx: 1, el: 5000 } }, 'no_progress');
+ok({ action: 'saveProgress', uid: 'u1', p: { rid: 'r1', sid: 's1', sname: 'Môn thử', mode: 'chapter', items: 'c1|q1|10;c1|q2|012', sel: '1x', idx: 0, el: 1000 } });
+ok({ action: 'saveProgress', uid: 'u1', p: { rid: 'r1', sel: '10', idx: 1, el: 9000 } });
+const pg = ok({ action: 'getProgress', uid: 'u1' });
+assert.strictEqual(pg.items, 'c1|q1|10;c1|q2|012');
+assert.strictEqual(pg.sel, '10'); assert.strictEqual(pg.idx, 1); assert.strictEqual(pg.sid, 's1');
+bad({ action: 'saveProgress', uid: 'u1', p: { rid: 'khac', sel: '1', idx: 0, el: 1 } }, 'no_progress');
+assert.strictEqual(ok({ action: 'getProgress', uid: 'u2' }), null, 'mỗi người một phần dở');
+ok({ action: 'clearProgress', uid: 'u1' });
+assert.strictEqual(ok({ action: 'getProgress', uid: 'u1' }), null);
+
+/* Hình minh họa */
+const IMGD = 'data:image/jpeg;base64,/9j/AAAA';
+bad({ action: 'saveImage', id: 'i1', d: IMGD }, 'forbidden');
+bad({ action: 'saveImage', key, id: 'i1', d: 'khong-phai-hinh' }, 'bad_image');
+ok({ action: 'saveImage', key, id: 'i1', d: IMGD });
+assert.strictEqual(ok({ action: 'image', id: 'i1' }).d, IMGD);
+bad({ action: 'image', id: 'i404' }, 'not_found');
+assert.deepStrictEqual(ok({ action: 'imagesHave', key, ids: ['i1', 'i404'] }), ['i1']);
+const withImg = ok({ action: 'saveSubject', key, meta: { id: 's2', name: 'Có hình' }, chapters: [{ id: 'c1', name: 'B', qs: [{ id: 'q1', q: 'Hình?', o: ['a', 'b'], a: 0, i: ['i1'] }] }] });
+assert.strictEqual(ok({ action: 'subject', sid: 's2' }).chapters[0].qs[0].i[0], 'i1');
+assert.strictEqual(ok({ action: 'subject', sid: 's2' }).chapters[0].qs[0].s, 1, 'câu có hình luôn không xáo');
+bad({ action: 'saveSubject', key, meta: { id: 's3', name: 'x' }, chapters: [{ id: 'c1', name: 'B', qs: [{ id: 'q1', q: 'x', o: ['a', 'b'], a: 0, i: ['../x'] }] }] }, 'bad_id');
+ok({ action: 'deleteSubject', key, sid: 's2' });
+
 /* Drive */
 bad({ action: 'driveList' }, 'forbidden');
 let files = ok({ action: 'driveList', key }).files;
@@ -158,4 +185,17 @@ bad({ action: 'subject', sid: 's1' }, 'not_found');
 
 bad({ action: 'khong-ton-tai' }, 'bad_action');
 assert.strictEqual(JSON.parse(ctx.doGet()._s).ok, true);
+/* Đường dự phòng JSONP cho điện thoại */
+const jp = ctx.doGet({ parameter: { q: JSON.stringify({ action: 'subjects' }), callback: 'cb1' } })._s;
+assert.ok(/^cb1\(\{"ok":true,"data":\[/.test(jp), 'jsonp trả về hàm gọi lại');
+assert.ok(JSON.parse(ctx.doGet({ parameter: { q: '{x', callback: 'a(b' } })._s).ok === false, 'callback lạ hoặc json hỏng bị từ chối');
+/* Bài đọc và chỉ mục nhiều cấp */
+ok({ action: 'saveSubject', key, meta: { id: 's3', name: 'Anh' }, chapters: [{ id: 'c1', name: 'UNIT 1 › Reading', path: ['UNIT 1', 'Reading'], ps: [{ id: 'p1', t: 'Tom likes apples.', i: ['i9'] }],
+  qs: [{ id: 'q1', q: 'Ai?', o: ['a', 'b'], a: 0, p: 'p1' }] }] });
+const en3 = ok({ action: 'subject', sid: 's3' });
+assert.deepStrictEqual(en3.chapters[0].path, ['UNIT 1', 'Reading']);
+assert.strictEqual(en3.chapters[0].ps[0].t, 'Tom likes apples.');
+assert.strictEqual(en3.chapters[0].ps[0].i[0], 'i9');
+assert.strictEqual(en3.chapters[0].qs[0].p, 'p1');
+assert.deepStrictEqual(ok({ action: 'subjects' }).find((x) => x.id === 's3').chapters[0].path, ['UNIT 1', 'Reading']);
 console.log('gas.test.js: tất cả đều đạt');

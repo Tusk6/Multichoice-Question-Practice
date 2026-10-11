@@ -1,4 +1,4 @@
-/* Tô Đáp Án: đọc đề (chữ lấy từ file docx) và các hàm dùng chung cho giao diện. */
+/* Multichoice - Question Practice: đọc đề (chữ lấy từ file docx) và các hàm dùng chung cho giao diện. */
 const LET = 'ABCDEFGH';
 const fnv = (str) => {
   let h = 0x811c9dc5;
@@ -7,16 +7,24 @@ const fnv = (str) => {
 };
 const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
-/* "Bài 1: Cơ sở…" -> "Bài 1" */
-const shortName = (n) => {
+/* Tên đầy đủ của bài có dạng "UNIT 1 › Reading" (nhiều cấp, ngăn cách bằng " › ") */
+const SEP = ' › ';
+const short1 = (n) => {
   const s = String(n || '').replace(/\s*[:.\-–].*$/, '').trim();
   return s || String(n || '');
 };
+/* "Bài 1: Cơ sở…" -> "Bài 1"; "UNIT 1: Life › Reading" -> "UNIT 1 › Reading" */
+const shortName = (n) => String(n || '').split(SEP).map(short1).join(SEP);
+const pathOf = (m) => (m && m.path && m.path.length ? m.path : [m ? m.name : '']);
 
 const OPTRE = /^\s*(?:[-•]\s*)?\(?([A-Ha-h])\s*[.):\]]\s*(.*)$/;
 const QSTART = /^\s*(?:câu\s*hỏi|câu|cầu|cau|question)\s*\.?\s*(\d+)\s*[.:)\]\-–]*\s*(.*)$/i;
 const CHAP = /^\s*(bài|chương|chuong|phần)\s+(\d+|[IVXLC]+)\s*(?:[:.\-–)]|$)\s*(.*)$/i;
 const ANSRE = /^\s*\*?\s*(?:đáp\s*án(?:\s*đúng)?|dap\s*an)\s*(\*?)\s*[:\-–=.]?\s*(\*?)\s*(.*)$/i;
+const HEADRE = /^\s*#([1-6])\s+(\S.*)$/;
+const PSTART = /^\s*(?:\[\s*(?:passage|reading(?:\s*passage)?|bài\s*đọc|đoạn\s*văn)\s*\d*\s*\]|(?:passage|reading\s*passage|bài\s*đọc|đoạn\s*văn(?:\s*bản)?)\s*\d*\s*:)\s*(.*)$/i;
+const PEND = /^\s*\[\s*\/\s*(?:passage|reading(?:\s*passage)?|bài\s*đọc|đoạn\s*văn)\s*\]\s*$/i;
+const IMGRE = /^\s*\[\[IMG:(\d+)\]\]\s*$/;
 const EXPRE = /^\s*(?:giải\s*thích|lời\s*giải|hướng\s*dẫn(?:\s*giải)?|explanation|gợi\s*ý)\s*[:\-–]?\s*(.*)$/i;
 
 /* Nhận dòng đáp án "A. …". Chịu được file gõ sót dấu ("B Nội dung", "B, Nội dung")
@@ -70,10 +78,12 @@ function parseExam(raw, fallbackName) {
   const chapters = [];
   const warn = [];
   let chap = null, cur = null, ctx = 'stem';
+  let stack = [], pas = null, inPas = false; /* stack: tiêu đề #n đang mở; pas: bài đọc hiện hành */
 
   const ensureChap = () => {
     if (!chap) {
-      chap = { name: chapters.length ? 'Chưa phân bài' : (fallbackName || 'Toàn bộ đề'), expect: 0, qs: [], hasHead: false };
+      chap = { name: chapters.length ? 'Chưa phân bài' : (fallbackName || 'Toàn bộ đề'), path: [], expect: 0, qs: [], ps: [], hasHead: false };
+      chap.path = [chap.name];
       chapters.push(chap);
     }
   };
@@ -89,11 +99,32 @@ function parseExam(raw, fallbackName) {
     if (m && LET.indexOf(m[1].toUpperCase()) === c.ans) exp = exp.slice(m[0].length).trim();
     const ok = c.ans >= 0 && c.ans < c.opts.length;
     if (!ok) warn.push(where + ': không có dòng "Đáp án: X", cần bổ sung đáp án.');
-    chap.qs.push({ q, opts: c.opts, ans: ok ? c.ans : -1, exp, sp: c.sp });
+    if (c.expImg) warn.push(where + ': hình trong phần giải thích chưa được hỗ trợ nên bị bỏ qua.');
+    let pi = -1;
+    if (c.pas && (c.pas.text || c.pas.imgs.length)) {
+      pi = chap.ps.indexOf(c.pas);
+      if (pi < 0) { chap.ps.push(c.pas); pi = chap.ps.length - 1; }
+    }
+    chap.qs.push({ q, opts: c.opts, ans: ok ? c.ans : -1, exp, sp: c.sp || c.imgs.length > 0, imgs: c.imgs, pi });
+  };
+  const closePas = () => {
+    if (inPas && pas) pas.text = pas.lines.join('\n').trim();
+    inPas = false;
+  };
+  const newChap = (name, path) => {
+    flush(); closePas(); pas = null;
+    let expect = 0;
+    const cm = name.match(/\(\s*(\d+)\s*câu\s*\)\s*$/i);
+    if (cm) { expect = Number(cm[1]); name = name.slice(0, cm.index).trim(); }
+    if (path) path = path.slice(0, -1).concat(name);
+    chap = { name: path ? path.join(SEP) : name, path: path || [name], expect, qs: [], ps: [], hasHead: true };
+    chapters.push(chap);
+    cur = null; ctx = 'stem';
   };
   const startQ = (label, rest) => {
     flush(); ensureChap();
-    cur = { label, stem: rest ? [rest] : [], opts: [], lab: [], ans: -1, exp: [], sp: false };
+    closePas();
+    cur = { label, stem: rest ? [rest] : [], opts: [], lab: [], ans: -1, exp: [], sp: false, imgs: [], expImg: false, pas: pas };
     ctx = 'stem';
   };
 
@@ -101,15 +132,40 @@ function parseExam(raw, fallbackName) {
     const line = raw0.replace(/\s+$/, '');
     if (!line.trim()) continue;
 
+    const im = line.match(IMGRE);
+    if (im) {
+      if (inPas && pas) pas.imgs.push(Number(im[1]));
+      else if (cur) { if (ctx === 'exp' || ctx === 'ans') cur.expImg = true; else cur.imgs.push(Number(im[1])); }
+      continue;
+    }
+
+    const hm = line.match(HEADRE);
+    if (hm) {
+      const lv = Number(hm[1]);
+      while (stack.length && stack[stack.length - 1].lv >= lv) stack.pop();
+      const nm = hm[2].trim().replace(/\s+:/, ':');
+      stack.push({ lv, name: nm.replace(/\s*\(\s*\d+\s*câu\s*\)\s*$/i, '').trim() });
+      newChap(nm, stack.map((x) => x.name));
+      continue;
+    }
     if (CHAP.test(line)) {
-      flush();
-      let name = line.trim().replace(/\s+:/, ':');
-      let expect = 0;
-      const cm = name.match(/\(\s*(\d+)\s*câu\s*\)\s*$/i);
-      if (cm) { expect = Number(cm[1]); name = name.slice(0, cm.index).trim(); }
-      chap = { name, expect, qs: [], hasHead: true };
-      chapters.push(chap);
-      cur = null; ctx = 'stem';
+      stack = [];
+      newChap(line.trim().replace(/\s+:/, ':'), null);
+      continue;
+    }
+
+    if (inPas) {
+      if (PEND.test(line)) { closePas(); continue; }
+      const pm0 = line.match(PSTART);
+      if (!pm0 && !QSTART.test(line)) { pas.lines.push(line.trim()); continue; }
+      if (!pm0) closePas();
+    }
+    if (PEND.test(line)) { closePas(); continue; }
+    const pm = line.match(PSTART);
+    if (pm) {
+      flush(); closePas(); ensureChap();
+      pas = { lines: pm[1].trim() ? [pm[1].trim()] : [], imgs: [], text: '' };
+      inPas = true; cur = null; ctx = 'stem';
       continue;
     }
 
@@ -118,8 +174,17 @@ function parseExam(raw, fallbackName) {
       const rest = am[3].trim();
       const sp = !!(am[1] || am[2] || /^\*/.test(rest));
       let k = letterOf(rest);
-      if (k < 0) k = cur.opts.findIndex((o) => norm(o) === norm(rest.replace(/^\*\s*/, '')));
-      if (k >= 0) { const at = cur.lab.indexOf(k); cur.ans = at >= 0 ? at : k; cur.sp = sp; ctx = 'ans'; continue; }
+      let tail = '';
+      if (k >= 0) {
+        tail = rest.replace(/^[\s(\[*]*[A-Ha-h]\s*[.):\]]?[\s*]*/, '').replace(/^[-–:,;.]\s*/, '');
+        const em2 = tail.match(EXPRE);
+        if (em2) tail = em2[1];
+      } else k = cur.opts.findIndex((o) => norm(o) === norm(rest.replace(/^\*\s*/, '')));
+      if (k >= 0) {
+        const at = cur.lab.indexOf(k); cur.ans = at >= 0 ? at : k; cur.sp = sp; ctx = 'ans';
+        if (tail.trim()) cur.exp.push(tail.trim());
+        continue;
+      }
     }
 
     const em = line.match(EXPRE);
@@ -147,12 +212,12 @@ function parseExam(raw, fallbackName) {
     if (ctx === 'opt' && cur.opts.length) cur.opts[cur.opts.length - 1] += ' ' + t;
     else cur.stem.push(t);
   }
-  flush();
+  flush(); closePas();
 
   const out = chapters.filter((c) => c.qs.length);
   let total = 0, need = 0;
   chapters.forEach((c) => {
-    if (c.hasHead && !c.qs.length) warn.push(shortName(c.name) + ': chưa đọc được câu nào.');
+    if (c.hasHead && !c.qs.length && !chapters.some((o) => o !== c && o.path.length > c.path.length && c.path.every((x, i) => o.path[i] === x))) warn.push(shortName(c.name) + ': chưa đọc được câu nào.');
     if (c.expect && c.qs.length && c.expect !== c.qs.length) warn.push(shortName(c.name) + ': ghi ' + c.expect + ' câu nhưng đọc được ' + c.qs.length + ' câu.');
   });
   out.forEach((c) => c.qs.forEach((q) => { if (q.ans >= 0) total++; else need++; }));
@@ -173,19 +238,40 @@ function resolveFixes(chapters, fixAns) {
     .filter((c) => c.qs.length);
 }
 
-/* Gán id cho câu hỏi (ổn định theo nội dung) và rút gọn khóa để lưu */
+/* Gán id cho câu hỏi (ổn định theo nội dung) và rút gọn khóa để lưu.
+   Bài đọc: chương lưu ps = [{id,t,i?}], câu thuộc bài đọc có p = id bài đọc. */
 function packChapters(chapters) {
   const seen = {};
-  return chapters.map((c, i) => ({
-    id: 'c' + (i + 1),
-    name: c.name,
-    qs: c.qs.filter((q) => q.ans >= 0).map((q) => {
-      const base = fnv(q.q + '\u0001' + q.opts.join('\u0001'));
+  return chapters.map((c, i) => {
+    const pmap = {}, ps = [];
+    const pidOf = (k) => {
+      if (k === undefined || k < 0 || !c.ps || !c.ps[k]) return '';
+      if (pmap[k] === undefined) {
+        const p = c.ps[k];
+        const ims = p.imgs && p.imgs.length ? p.imgs.slice() : null;
+        const id = 'p' + fnv((p.text || '') + (ims ? '\u0002' + ims.join(',') : ''));
+        let dup = ps.find((x) => x.id === id);
+        if (!dup) { dup = { id, t: p.text || '' }; if (ims) dup.i = ims; ps.push(dup); }
+        pmap[k] = id;
+      }
+      return pmap[k];
+    };
+    const qs = c.qs.filter((q) => q.ans >= 0).map((q) => {
+      const ims = q.imgs && q.imgs.length ? q.imgs : null;
+      const pid = pidOf(q.pi);
+      const base = fnv(q.q + '\u0001' + q.opts.join('\u0001') + (ims ? '\u0002' + ims.join(',') : '') + (pid ? '\u0003' + pid : ''));
       let id = base;
       if (seen[base]) { seen[base]++; id = base + '_' + seen[base]; } else seen[base] = 1;
-      return { id, q: q.q, o: q.opts, a: q.ans, e: q.exp || '', s: q.sp ? 1 : 0 };
-    }),
-  }));
+      const rec = { id, q: q.q, o: q.opts, a: q.ans, e: q.exp || '', s: q.sp || ims ? 1 : 0 };
+      if (ims) rec.i = ims.slice();
+      if (pid) rec.p = pid;
+      return rec;
+    });
+    const out = { id: 'c' + (i + 1), name: c.name, qs };
+    if (c.path && c.path.length > 1) out.path = c.path.slice();
+    if (ps.length) out.ps = ps;
+    return out;
+  });
 }
 
 /* Gộp các lượt làm bài của một môn: thống kê theo bài/chương và theo câu.
@@ -209,4 +295,16 @@ function analyzeRuns(sid, docs) {
   return { runs, people: people.size, ch, q };
 }
 
-if (typeof module !== 'undefined') module.exports = { parseExam, packChapters, resolveFixes, analyzeRuns, cleanText, shortName, LET, fnv, norm };
+/* Chuyển HTML do mammoth tạo ra thành văn bản; mỗi hình thành một dòng [[IMG:n]] đúng vị trí trong file */
+function htmlToText(html) {
+  return String(html || '')
+    .replace(/<img[^>]*src="tda-img:(\d+)"[^>]*>/gi, '\n[[IMG:$1]]\n')
+    .replace(/<\/(p|li|h[1-6]|tr|div|table|ul|ol)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/t[dh]>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&#x27;/g, "'").replace(/&amp;/g, '&');
+}
+
+if (typeof module !== 'undefined') module.exports = { SEP, pathOf, htmlToText, parseExam, packChapters, resolveFixes, analyzeRuns, cleanText, shortName, LET, fnv, norm };

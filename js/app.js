@@ -1,4 +1,4 @@
-/* Tô Đáp Án: giao diện. Mọi thao tác dữ liệu đều đi qua window.TDA_API (xem api-gas.js). */
+/* Multichoice - Question Practice: giao diện. Mọi thao tác dữ liệu đều đi qua window.TDA_API (xem api-gas.js). */
 (() => {
 'use strict';
 const API = window.TDA_API;
@@ -124,13 +124,13 @@ function viewNoDb() {
   if (code === 'no_url') body = 'Trang chưa biết máy chủ lưu dữ liệu ở đâu. Hãy mở file <b>js/config.js</b>, dán địa chỉ Web app của Apps Script vào <b>GAS_URL</b>, rồi tải lại trang. Các bước chi tiết có trong README.';
   else if (code === 'nodb') body = 'Trang cần mở trong claude.ai khi đã đăng nhập thì mới lấy được đề và lưu kết quả. Hãy đăng nhập rồi tải lại trang. Nếu bạn nhận link từ admin, nhờ admin cấp quyền Contributor cho bạn trong nút Share.';
   else body = esc((S.fatal && S.fatal.message) || 'Không kết nối được máy chủ.') + ' Hãy kiểm tra mạng rồi thử lại.';
-  return '<section class="empty"><div class="brand">' + logo() + '<h1>Tô Đáp Án</h1></div><h2>Chưa kết nối được dữ liệu</h2><p>' + body + '</p><div class="row"><button class="btn" data-act="reload">Tải lại</button></div></section>';
+  return '<section class="empty"><div class="brand">' + logo() + '<h1>Multichoice - Question Practice</h1></div><h2>Chưa kết nối được dữ liệu</h2><p>' + body + '</p><div class="row"><button class="btn" data-act="reload">Tải lại</button></div></section>';
 }
 function viewName() {
-  return '<section class="namebox">' + logo() + '<h1>Tô Đáp Án</h1>' +
+  return '<section class="namebox">' + logo() + '<h1>Multichoice - Question Practice</h1>' +
     '<p class="sub">Luyện đề trắc nghiệm theo từng bài, từng chương.</p>' +
     '<div class="field"><label for="nm">Tên của bạn</label><input id="nm" class="inp" type="text" maxlength="40" autocomplete="name" value="' + esc(S.name) + '" placeholder="Ví dụ: Tú"></div>' +
-    '<p class="hint">Tên dùng để lưu kết quả. ' + esc(API.privacyNote) + ' Máy này sẽ nhớ tên cho lần sau.</p>' +
+    '<p class="hint">Tên dùng để lưu kết quả. Nhập cùng một tên trên máy tính và điện thoại thì kết quả và phần đang làm dở sẽ đồng bộ với nhau. Hai người trùng tên sẽ dùng chung dữ liệu, nên hãy ghi tên đủ phân biệt. ' + esc(API.privacyNote) + ' Máy này sẽ nhớ tên cho lần sau.</p>' +
     '<button class="btn pri big" data-act="savename">Vào làm bài</button></section>';
 }
 function viewAdminLogin() {
@@ -140,10 +140,11 @@ function viewAdminLogin() {
     '<button class="btn pri big" data-act="adminlogin">Đăng nhập</button></section>';
 }
 function viewHome() {
-  let h = '<header class="top"><div class="brand">' + logo() + '<div><h1>Tô Đáp Án</h1><p class="sub">Xin chào, <b>' + esc(S.name) + '</b> · <button class="lnk" data-act="rename">Đổi tên</button></p></div></div>' +
+  let h = '<header class="top"><div class="brand">' + logo() + '<div><h1>Multichoice - Question Practice</h1><p class="sub">Xin chào, <b>' + esc(S.name) + '</b> · <button class="lnk" data-act="rename">Đổi tên</button></p></div></div>' +
     (D.admin ? '<div class="row"><button class="btn" data-act="live">Ai đang làm bài</button><button class="btn" data-act="reports">Báo lỗi' + (S.nReports ? '<span class="badge">' + S.nReports + '</span>' : '') + '</button><button class="btn pri" data-act="import">+ Nhập đề</button></div>' : '') + '</header>';
   if (!D.canWrite) h += '<p class="notice">Bạn đang ở quyền chỉ xem nên kết quả làm bài sẽ không được lưu. Nhờ admin cấp quyền Contributor để lưu.</p>';
   if (!S.subsReady) return h + '<p class="muted">Đang tải danh sách môn…</p>';
+  if (S.prog && S.subjects.some((x) => x.id === S.prog.sid)) h += resumeHTML(S.prog, false);
   if (!S.subjects.length) {
     h += '<section class="empty"><h2>Chưa có môn nào</h2>' + (D.admin
       ? '<p>Nhập file đề .docx từ thư mục Google Drive hoặc từ máy. Tên file sẽ thành tên môn, mỗi "Bài" hoặc "Chương" trong file thành một mục để ôn.</p><div class="row"><button class="btn pri" data-act="import">+ Nhập đề</button></div>'
@@ -175,16 +176,24 @@ function viewSub() {
     '<div class="setup-h"><span class="made">Mã đề ' + maDe(sub.id) + '</span><h2 class="h2">' + esc(sub.name) + '</h2><p class="muted">' + sub.chapters.length + ' bài/chương · ' + sub.total + ' câu</p>' +
     (D.admin ? '<button class="btn" data-act="editsub" data-id="' + sub.id + '">Sửa đề, sửa lỗi</button>' : '') + '</div>';
   if (S.loading) return h + '<p class="muted">' + esc(S.loading) + '</p>';
+  if (S.prog && S.prog.sid === sub.id) h += resumeHTML(S.prog, true);
   const mine = analyzeRuns(sub.id, [S.mine]).ch;
   const seg = (v, label, extra) => '<button type="button" role="radio" aria-checked="' + (c.mode === v) + '" class="seg-b' + (c.mode === v ? ' on' : '') + '" data-act="setmode" data-v="' + v + '">' + label + '<small>' + extra + '</small></button>';
   h += '<fieldset class="fs"><legend>Cách làm</legend><div class="seg" role="radiogroup">' +
     seg('chapter', 'Ôn tập theo bài/chương', 'Làm lần lượt từng bài bạn chọn') +
     seg('exam', 'Thi thử', 'Xáo trộn toàn bộ câu hỏi của cả bộ đề') + '</div></fieldset>';
   if (c.mode === 'chapter') {
+    let prevLead = [];
     h += '<fieldset class="fs"><legend>Chọn bài/chương <button class="lnk" data-act="selall">Chọn hết</button> <button class="lnk" data-act="selnone">Bỏ hết</button></legend><div class="chlist">' +
       sub.chapters.map((m) => {
-        const o = mine[m.id];
-        return '<label class="chrow"><input type="checkbox" data-k="sel" data-id="' + m.id + '"' + (c.sel[m.id] ? ' checked' : '') + '><span class="chn">' + esc(m.name) + '</span><span class="chm">' + m.n + ' câu' + (o && o.t ? ' · đúng ' + pct(o.c, o.t) + '%' : '') + '</span></label>';
+        const o = mine[m.id], pa = pathOf(m), lead = pa.slice(0, -1);
+        let hd = '', d0 = 0;
+        while (d0 < lead.length && d0 < prevLead.length && lead[d0] === prevLead[d0]) d0++;
+        for (let d = d0; d < lead.length; d++) hd += '<div class="grph d' + Math.min(d, 3) + '"><span>' + esc(lead[d]) + '</span><button type="button" class="lnk" data-act="selgrp" data-pre="' + esc(lead.slice(0, d + 1).join(SEP)) + '">Chọn nhóm</button></div>';
+        prevLead = lead;
+        const wn = wrongInChapter(sub.id, m.id);
+        return hd + '<div class="chrow in' + Math.min(lead.length, 3) + '"><label class="chlab"><input type="checkbox" data-k="sel" data-id="' + m.id + '"' + (c.sel[m.id] ? ' checked' : '') + '><span class="chn">' + esc(pa[pa.length - 1]) + '</span></label><span class="chm">' + m.n + ' câu' + (o && o.t ? ' · đúng ' + pct(o.c, o.t) + '%' : '') + '</span>' +
+          '<span class="chbtn"><button type="button" class="btn sm" data-act="one" data-id="' + m.id + '" data-v="all">Làm bài này</button>' + (wn ? '<button type="button" class="btn sm" data-act="one" data-id="' + m.id + '" data-v="wrong">Làm lại câu sai (' + wn + ')</button>' : '') + '</span></div>';
       }).join('') + '</div></fieldset>';
   } else {
     const chips = [20, 40, 50, 100].filter((x) => x < sub.total).map((x) => '<button type="button" class="chip' + (c.n === x ? ' on' : '') + '" data-act="setn" data-v="' + x + '">' + x + ' câu</button>').join('') +
@@ -200,6 +209,87 @@ function viewSub() {
     ? '<div class="seg2" role="radiogroup"><button type="button" class="chip' + (S.scope === 'me' ? ' on' : '') + '" data-act="scope" data-v="me">Của tôi</button><button type="button" class="chip' + (S.scope === 'all' ? ' on' : '') + '" data-act="scope" data-v="all">Mọi người</button></div>' : '') + '</div>' + anlHTML(sub) + '</section>';
   return h;
 }
+
+/* ---------- Bài đọc và chỉ mục nhiều cấp ---------- */
+const passOf = (c, q) => (q.p && c.ps ? c.ps.find((x) => x.id === q.p) || null : null);
+function mkItem(c, q, idx) {
+  const ps = passOf(c, q), fixed = !!(q.s || (q.i && q.i.length));
+  return { id: q.id, cid: c.id, cn: c.name, q: q.q, o: idx.map((i) => q.o[i]), a: idx.indexOf(q.a), e: q.e || '', sp: fixed, p: idx.join(''), im: q.i || [],
+    pid: ps ? ps.id : '', pt: ps ? ps.t : '', pim: ps && ps.i ? ps.i : [] };
+}
+/* Xáo thứ tự nhưng các câu cùng một bài đọc luôn đi liền nhau, đúng thứ tự trong file */
+function shuffleGroups(items) {
+  const groups = [];
+  items.forEach((it) => {
+    const g = groups[groups.length - 1];
+    if (it.pid && g && g[0].cid === it.cid && g[0].pid === it.pid) g.push(it); else groups.push([it]);
+  });
+  return shuffle(groups).reduce((a, g) => a.concat(g), []);
+}
+function psgHTML(it, open) {
+  if (!it.pt && !(it.pim && it.pim.length)) return '';
+  const body = (it.pt ? '<div class="psg-t">' + esc(it.pt) + '</div>' : '') + imgsHTML(it.pim);
+  if (open) return '<section class="psg"><div class="psg-h">Bài đọc</div>' + body + '</section>';
+  return '<details class="psg"><summary>Bài đọc: ' + esc(clip((it.pt || 'có hình').replace(/\s+/g, ' '), 70)) + '</summary>' + body + '</details>';
+}
+const chMeta = (c) => { const o = { id: c.id, name: c.name, n: c.qs.length }; if (c.path && c.path.length > 1) o.path = c.path.slice(); return o; };
+
+/* ---------- Hình minh họa ---------- */
+S.img = {}; const imgPending = {};
+function imgsHTML(ids) {
+  if (!ids || !ids.length) return '';
+  return '<div class="qimgs">' + ids.map((id) => (S.img[id]
+    ? '<img class="qimg" src="' + S.img[id] + '" alt="Hình minh họa" data-act="zoom">'
+    : '<div class="qimg ph" data-iid="' + esc(id) + '" data-act="imgretry">Đang tải hình…</div>')).join('') + '</div>';
+}
+function wantImgs(ids) {
+  (ids || []).forEach((id) => {
+    if (S.img[id] || imgPending[id]) return;
+    imgPending[id] = Promise.resolve().then(() => API.getImage(id)).then((d) => {
+      delete imgPending[id];
+      if (!d) throw new Error('empty');
+      S.img[id] = d;
+      document.querySelectorAll('[data-iid="' + id + '"]').forEach((el) => {
+        const im = document.createElement('img');
+        im.className = 'qimg'; im.src = d; im.alt = 'Hình minh họa'; im.setAttribute('data-act', 'zoom');
+        el.replaceWith(im);
+      });
+    }).catch(() => {
+      delete imgPending[id];
+      document.querySelectorAll('[data-iid="' + id + '"]').forEach((el) => { el.textContent = 'Chưa tải được hình. Bấm để thử lại.'; });
+    });
+  });
+}
+function showZoom(src) {
+  const d = document.createElement('div');
+  d.className = 'lb'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Hình phóng to');
+  const im = document.createElement('img'); im.src = src; im.alt = 'Hình phóng to';
+  d.appendChild(im);
+  d.addEventListener('click', () => d.remove());
+  document.body.appendChild(d);
+}
+/* Thu nhỏ hình về dung lượng vừa phải (JPEG, rộng tối đa 1000px, tối đa khoảng 170 KB) */
+const IMG_MAX_CHARS = 170000;
+function loadImage(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('img')); i.src = src; });
+}
+async function compressImage(src) {
+  const img = await loadImage(src);
+  const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+  if (!w0 || !h0) throw new Error('size');
+  let maxW = 1000, out = '';
+  for (let k = 0; k < 8; k++) {
+    const sc = Math.min(1, maxW / w0), cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(w0 * sc)); cv.height = Math.max(1, Math.round(h0 * sc));
+    const cx = cv.getContext('2d');
+    cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+    for (const q of [0.86, 0.72, 0.58]) { out = cv.toDataURL('image/jpeg', q); if (out.length <= IMG_MAX_CHARS) return out; }
+    maxW = Math.round(maxW * 0.75);
+  }
+  return out.length <= 300000 ? out : '';
+}
+const imgIdOf = (d) => 'i' + fnv(d) + fnv(String(d.length) + d.slice(-48));
+const fileToDataUrl = (f) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(new Error('read')); fr.readAsDataURL(f); });
 
 function optHTML(it, k, sel) {
   const done = sel >= 0;
@@ -243,6 +333,7 @@ function reportHTML(r) {
   return '<button class="lnk rptlink small" data-act="rpt">Báo lỗi câu này</button>';
 }
 function viewQuiz() {
+  wantImgs(S.run.items.slice(S.run.idx, S.run.idx + 4).reduce((a, x) => a.concat(x.im || [], x.pim || []), []));
   const r = S.run, it = r.items[r.idx], n = r.items.length, sel = r.sel[r.idx];
   const answered = r.sel.filter((s) => s >= 0).length;
   const el = Math.floor((Date.now() - r.t0) / 1000);
@@ -258,7 +349,7 @@ function viewQuiz() {
   }
   h += '<div class="quizgrid"><div class="main"><article class="card q"><div class="q-h"><span class="q-n">Câu ' + (r.idx + 1) + ' <small>/ ' + n + '</small></span>' +
     (r.mode === 'exam' ? '' : '<span class="chtag">' + esc(shortName(it.cn)) + ' · câu ' + posInChap + '/' + totInChap + '</span>') + '</div>' +
-    '<div class="stem">' + esc(it.q) + '</div><div class="opts" role="group" aria-label="Các đáp án">' + it.o.map((_, k) => optHTML(it, k, sel)).join('') + '</div>';
+    psgHTML(it, true) + '<div class="stem">' + esc(it.q) + '</div>' + imgsHTML(it.im) + '<div class="opts" role="group" aria-label="Các đáp án">' + it.o.map((_, k) => optHTML(it, k, sel)).join('') + '</div>';
   if (sel >= 0) {
     const ok = sel === it.a;
     h += '<div class="fb ' + (ok ? 'ok' : 'bad') + '" role="status"><b>' + (ok ? 'Chính xác.' : 'Chưa đúng.') + '</b>' + (ok ? '' : ' Đáp án đúng: ' + LET[it.a] + '.') + '</div>';
@@ -273,10 +364,11 @@ function viewQuiz() {
 }
 
 function reviewItem(R, i) {
+  wantImgs((R.items[i].im || []).concat(R.items[i].pim || []));
   const it = R.items[i], s = R.sel[i], sk = s < 0, ok = s === it.a;
   const st = sk ? 'skip' : ok ? 'ok' : 'bad';
   return '<article class="card rv ' + st + '"><header class="rv-h"><span class="rv-n">Câu ' + (i + 1) + '</span><span class="tag ' + st + '">' + (sk ? 'Bỏ trống' : ok ? 'Đúng' : 'Sai') + '</span><span class="muted small">' + esc(shortName(it.cn)) + '</span></header>' +
-    '<div class="stem">' + esc(it.q) + '</div><div class="opts">' + it.o.map((o, k) => {
+    psgHTML(it, false) + '<div class="stem">' + esc(it.q) + '</div>' + imgsHTML(it.im) + '<div class="opts">' + it.o.map((o, k) => {
       const c = k === it.a ? 'ok' : k === s ? 'bad' : '';
       const tag = k === s ? (k === it.a ? 'Bạn chọn · đúng' : 'Bạn chọn · sai') : k === it.a ? 'Đáp án đúng' : '';
       return '<div class="opt static ' + c + '"><span class="bub">' + LET[k] + '</span><span class="otext">' + esc(o) + '</span>' + (tag ? '<span class="you ' + c + '">' + tag + '</span>' : '') + '</div>';
@@ -296,7 +388,10 @@ function viewResult() {
   const chRows = Object.keys(run.ch).map((cid) => {
     const m = sub && sub.chapters.find((x) => x.id === cid);
     const o = run.ch[cid];
-    return '<li><div class="bl"><span class="bn">' + esc(m ? m.name : cid) + '</span><span class="bv">' + o[0] + '/' + o[1] + ' đúng</span></div><div class="bt ok"><i style="width:' + Math.max(2, pct(o[0], o[1])) + '%"></i></div></li>';
+    const wn = S.res.items.filter((it, k) => it.cid === cid && S.res.sel[k] !== it.a).length;
+    const can = S.sub && S.sub.id === run.sid && m;
+    return '<li><div class="bl"><span class="bn">' + esc(m ? m.name : cid) + '</span><span class="bv">' + o[0] + '/' + o[1] + ' đúng</span></div><div class="bt ok"><i style="width:' + Math.max(2, pct(o[0], o[1])) + '%"></i></div>' +
+      (can ? '<div class="chbtn left"><button type="button" class="btn sm" data-act="one" data-id="' + cid + '" data-v="all">Làm lại bài này</button>' + (wn ? '<button type="button" class="btn sm" data-act="one" data-id="' + cid + '" data-v="wrong">Làm lại câu sai (' + wn + ')</button>' : '') + '</div>' : '') + '</li>';
   }).join('');
   const hist = (S.mine.runs || []).filter((r) => r.sid === run.sid).slice(-12);
   return '<div class="crumb"><button class="btn ghost" data-act="backsub">← ' + esc(R.sname) + '</button></div>' +
@@ -344,7 +439,10 @@ function viewReports() {
 }
 
 /* ---------- Admin: sửa đề ---------- */
-const draftOf = (q) => ({ q: q.q, o: q.o.slice(), a: q.a, e: q.e || '', s: !!q.s });
+const draftOf = (q) => {
+  const c = S.chap[S.sub.id] && S.chap[S.sub.id][S.ed.cid], ps = c && passOf(c, q);
+  return { q: q.q, o: q.o.slice(), a: q.a, e: q.e || '', s: !!q.s, i: (q.i || []).slice(), p: q.p || '', pt: ps ? ps.t : '' };
+};
 function edListHTML() {
   const E = S.ed, sub = S.sub, map = S.chap[sub.id] || {};
   const f = norm(E.filter);
@@ -358,7 +456,7 @@ function edListHTML() {
     });
   });
   if (!rows.length) return '<li class="muted">Không có câu nào.</li>';
-  return rows.slice(0, 200).map((x) => '<li><div class="edq"><div class="edq-t">' + esc(clip(x.q.q, 150)) + '</div><div class="edq-m">' + esc(shortName(x.c.name)) + ' · câu ' + (x.i + 1) + ' · đáp án ' + LET[x.q.a] + (x.q.s ? ' · không xáo' : '') + '</div></div>' +
+  return rows.slice(0, 200).map((x) => '<li><div class="edq"><div class="edq-t">' + esc(clip(x.q.q, 150)) + '</div><div class="edq-m">' + esc(shortName(x.c.name)) + ' · câu ' + (x.i + 1) + ' · đáp án ' + LET[x.q.a] + (x.q.i && x.q.i.length ? ' · có hình' : '') + (x.q.s ? ' · không xáo' : '') + '</div></div>' +
     '<button class="btn" data-act="edq" data-id="' + x.c.id + '" data-v="' + x.q.id + '">Sửa</button></li>').join('') +
     (rows.length > 200 ? '<li class="muted small">Chỉ hiện 200 câu đầu, hãy lọc để thu hẹp.</li>' : '');
 }
@@ -375,15 +473,18 @@ function viewEdit() {
     '<ul id="edlist" class="edlist">' + edListHTML() + '</ul>';
 }
 function viewEditForm() {
+  wantImgs(S.ed.draft.i);
   const E = S.ed, d = E.draft, c = S.chap[S.sub.id][E.cid], isNew = !E.qid;
   return '<div class="crumb"><button class="btn ghost" data-act="edcancel">← Hủy, quay lại</button></div><h2 class="h2">' + (isNew ? 'Thêm câu hỏi' : 'Sửa câu hỏi') + '</h2><p class="muted small">' + esc(c.name) + '</p>' +
-    '<div class="edform"><div class="field"><label for="ed-q">Câu hỏi</label><textarea id="ed-q" class="inp area sm" data-ed="q" rows="3">' + esc(d.q) + '</textarea></div>' +
+    '<div class="edform">' + (d.p ? '<div class="field"><label for="ed-pt">Bài đọc (chung cho mọi câu cùng bài đọc)</label><textarea id="ed-pt" class="inp area" data-ed="pt" rows="6">' + esc(d.pt) + '</textarea></div>' : '') + '<div class="field"><label for="ed-q">Câu hỏi</label><textarea id="ed-q" class="inp area sm" data-ed="q" rows="3">' + esc(d.q) + '</textarea></div>' +
+    '<fieldset class="fs"><legend>Hình minh họa (nằm dưới câu hỏi)</legend>' + ((d.i && d.i.length) ? '<div class="edimgs">' + d.i.map((x, k) => '<div class="edimg">' + imgsHTML([x]) + '<button type="button" class="btn ghost" data-act="edimgrm" data-i="' + k + '">Bỏ hình này</button></div>').join('') + '</div>' : '<p class="muted small">Câu này chưa có hình.</p>') +
+      '<div class="row"><button type="button" class="btn" data-act="edimgadd"' + (S.ed.busy ? ' disabled' : '') + '>+ Thêm hình</button><input id="ed-img" type="file" accept="image/*" hidden>' + (S.ed.busy ? '<span class="muted small">' + esc(S.ed.busy) + '</span>' : '') + '</div></fieldset>' +
     '<fieldset class="fs"><legend>Các đáp án (chọn nút tròn ở đáp án đúng)</legend>' + d.o.map((o, k) =>
       '<div class="oedit"><input type="radio" name="ed-a" value="' + k + '"' + (d.a === k ? ' checked' : '') + ' aria-label="Đáp án ' + LET[k] + ' là đáp án đúng"><span class="bub sm">' + LET[k] + '</span>' +
       '<textarea class="inp area sm" rows="2" data-ed="o" data-k="' + k + '" aria-label="Nội dung đáp án ' + LET[k] + '">' + esc(o) + '</textarea>' +
       (d.o.length > 2 ? '<button type="button" class="btn ghost" data-act="edrmo" data-i="' + k + '" aria-label="Xóa đáp án ' + LET[k] + '">×</button>' : '') + '</div>').join('') +
     (d.o.length < 8 ? '<button class="btn" data-act="edaddo">+ Thêm đáp án</button>' : '') + '</fieldset>' +
-    '<label class="chk"><input type="checkbox" id="ed-s"' + (d.s ? ' checked' : '') + '><span>Không xáo trộn đáp án của câu này <small class="muted">(ví dụ câu có "Cả A và B đều đúng")</small></span></label>' +
+    '<label class="chk"><input type="checkbox" id="ed-s"' + (d.s || (d.i && d.i.length) ? ' checked' : '') + ((d.i && d.i.length) ? ' disabled' : '') + '><span>Không xáo trộn đáp án của câu này <small class="muted">(ví dụ câu có "Cả A và B đều đúng")</small></span></label>' +
     '<div class="field"><label for="ed-e">Giải thích (không bắt buộc)</label><textarea id="ed-e" class="inp area sm" data-ed="e" rows="3">' + esc(d.e) + '</textarea></div>' +
     '<div class="row actions"><button class="btn pri big" data-act="edsave">Lưu câu</button>' +
     (isNew ? '' : (E.confirmDel ? '<span class="confirm"><span>Xóa câu này?</span><button class="btn danger" data-act="eddelyes">Xóa</button><button class="btn" data-act="eddelno">Giữ lại</button></span>' : '<button class="btn ghost" data-act="eddel">Xóa câu</button>')) + '</div></div>';
@@ -395,7 +496,7 @@ async function persistSubject(sid) {
   const meta = Object.assign({}, sub, {
     updatedAt: Date.now(), by: S.name,
     total: chapters.reduce((a, c) => a + c.qs.length, 0),
-    chapters: chapters.map((c) => ({ id: c.id, name: c.name, n: c.qs.length })),
+    chapters: chapters.map(chMeta),
   });
   await API.saveSubject(meta, chapters);
   [S.sub, S.subjects.find((s) => s.id === sid)].forEach((o) => { if (o && o.id === sid) Object.assign(o, meta); });
@@ -417,6 +518,20 @@ async function startEdit(id, opts) {
   }
   if (S.view === 'edit') render(true);
 }
+async function onEditImage(file) {
+  const E = S.ed, d = E.draft;
+  if ((d.i || []).length >= 6) { toast('Mỗi câu tối đa 6 hình.'); return; }
+  E.busy = 'Đang xử lý hình…'; render(false);
+  try {
+    const url = await compressImage(await fileToDataUrl(file));
+    if (!url) throw new Error('big');
+    const id = imgIdOf(url);
+    E.busy = 'Đang tải hình lên…'; render(false);
+    if (!(await API.hasImages([id])).length) await API.saveImage(id, url);
+    S.img[id] = url; (d.i = d.i || []).push(id);
+    E.busy = ''; render(false);
+  } catch (e) { E.busy = ''; render(false); toast(errMsg(e, 'Không đọc được hình này. Hãy chọn file ảnh PNG hoặc JPG.')); }
+}
 async function saveDraft() {
   const E = S.ed, d = E.draft, sub = S.sub, c = S.chap[sub.id][E.cid];
   const q = d.q.trim(), o = d.o.map((x) => x.trim());
@@ -426,9 +541,17 @@ async function saveDraft() {
   if (o.length < 2) { toast('Cần ít nhất 2 đáp án.'); return; }
   if (d.a < 0 || d.a >= o.length) { toast('Hãy chọn đáp án đúng.'); return; }
   const backup = clone(c.qs);
-  const item = { id: E.qid || newId(), q, o, a: d.a, e: d.e.trim(), s: d.s ? 1 : 0 };
+  const item = { id: E.qid || newId(), q, o, a: d.a, e: d.e.trim(), s: (d.s || (d.i && d.i.length)) ? 1 : 0 };
+  if (d.i && d.i.length) item.i = d.i.slice();
+  const oldQ = E.qid ? c.qs.find((x) => x.id === E.qid) : null;
+  const backPs = clone(c.ps || []);
+  if (oldQ && oldQ.p) {
+    item.p = oldQ.p;
+    const ps = (c.ps || []).find((x) => x.id === oldQ.p);
+    if (ps && d.pt !== undefined) ps.t = d.pt.trim();
+  }
   if (E.qid) c.qs[c.qs.findIndex((x) => x.id === E.qid)] = item; else c.qs.push(item);
-  try { await persistSubject(sub.id); } catch (e) { c.qs = backup; toast(errMsg(e, 'Chưa lưu được câu hỏi.')); return; }
+  try { await persistSubject(sub.id); } catch (e) { c.qs = backup; c.ps = backPs; toast(errMsg(e, 'Chưa lưu được câu hỏi.')); return; }
   const rep = E.rep;
   E.draft = null; E.qid = null; E.confirmDel = false;
   if (rep) {
@@ -489,23 +612,48 @@ function viewImport() {
   if (I.parsed) {
     const p = I.parsed, fx = fixItems(p);
     const fixed = fx.filter((x) => I.fixAns[x.ci + ':' + x.qi] >= 0).length;
-    const old = S.subjects.find((s) => s.id === 's' + fnv(norm(I.name)));
+    const old = oldOf(I), mode = old ? (I.mode || 'merge') : 'replace';
+    const plan = old && mode === 'merge' ? mergePlan(p.chapters, old.chapters) : null;
+    const nSel = plan ? p.chapters.filter((c, ci) => I.chSel[ci] !== false).reduce((a, c) => a + c.qs.length, 0) : 1;
     h += '<section class="prev"><h3>Kết quả đọc đề</h3>' +
       '<div class="field"><label for="imp-name">Tên môn (lấy theo tên file)</label><input id="imp-name" class="inp" type="text" value="' + esc(I.name) + '" maxlength="120"></div>' +
-      '<p class="pv-count"><b>' + (p.total + fixed) + '</b> câu sẽ được nhập, trong <b>' + p.chapters.length + '</b> bài/chương' + (p.chapters.some((c) => c.qs.some((q) => q.sp)) ? ' · có câu không xáo đáp án' : '') + '</p>' +
+      (S.subjects.length ? '<div class="field"><label for="imp-into">Hoặc đồng bộ vào môn đã có</label><select id="imp-into" class="inp"><option value="">Theo tên ở trên</option>' + S.subjects.map((x) => '<option value="' + esc(x.id) + '"' + (old && old.id === x.id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select></div>' : '') +
+      '<p class="pv-count"><b>' + (p.total + fixed) + '</b> câu sẽ được nhập, trong <b>' + p.chapters.length + '</b> bài/chương' + (nImgQ(p, I) ? ' · <b>' + nImgQ(p, I) + '</b> câu có hình (không xáo đáp án)' : '') + (p.chapters.some((c) => c.qs.some((q) => q.sp)) ? ' · có câu không xáo đáp án' : '') + '</p>' +
       (p.warn.length ? '<ul class="warn">' + p.warn.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul>' : '') +
       fixBoxHTML(I) +
-      '<ul class="chsum">' + p.chapters.map((c) => '<li><span>' + esc(c.name) + '</span><b>' + c.qs.length + ' câu</b></li>').join('') + '</ul>' +
-      (old ? '<p class="notice">Đã có môn tên này. Lưu sẽ thay nội dung cũ, thống kê của các câu không đổi nội dung vẫn được giữ.</p>' : '') +
+      (old ? '<fieldset class="fs"><legend>Môn này đã có, cách lưu</legend><div class="seg" role="radiogroup">' +
+        '<button type="button" role="radio" aria-checked="' + (mode === 'merge') + '" class="seg-b' + (mode === 'merge' ? ' on' : '') + '" data-act="impmode" data-v="merge">Đồng bộ theo bài<small>Bài cùng tên được cập nhật, bài mới được thêm, bài khác giữ nguyên</small></button>' +
+        '<button type="button" role="radio" aria-checked="' + (mode === 'replace') + '" class="seg-b' + (mode === 'replace' ? ' on' : '') + '" data-act="impmode" data-v="replace">Thay cả môn<small>Xóa nội dung cũ, chỉ giữ các bài trong file này</small></button></div></fieldset>' : '') +
+      (plan
+        ? '<ul class="chsum">' + p.chapters.map((c, ci) => '<li><label class="chk"><input type="checkbox" data-impch="' + ci + '"' + (I.chSel[ci] === false ? '' : ' checked') + '><span>' + esc(c.name) + '</span></label><b>' + c.qs.length + ' câu · ' + (plan[ci] ? 'cập nhật' : 'bài mới') + '</b></li>').join('') + '</ul>' +
+          (old.chapters.filter((m) => !plan.includes(m.id)).length ? '<p class="small muted">Giữ nguyên: ' + esc(old.chapters.filter((m) => !plan.includes(m.id)).map((m) => shortName(m.name)).join(', ')) + '.</p>' : '')
+        : '<ul class="chsum">' + p.chapters.map((c) => '<li><span>' + esc(c.name) + '</span><b>' + c.qs.length + ' câu</b></li>').join('') + '</ul>' + (old ? '<p class="notice">Lưu sẽ thay nội dung cũ. Thống kê của các câu không đổi nội dung vẫn được giữ.</p>' : '')) +
       (I.file && API.canDrive ? '<label class="chk"><input type="checkbox" id="imp-copy"' + (I.copy ? ' checked' : '') + '><span>Lưu thêm một bản sao file vào thư mục Multiple-Choice Question Bank</span></label>' : '') +
-      '<div class="row actions"><button class="btn pri big" data-act="savesub"' + (I.busy || !(p.total + fixed) ? ' disabled' : '') + '>Lưu môn này</button></div></section>';
+      '<div class="row actions"><button class="btn pri big" data-act="savesub"' + (I.busy || !(p.total + fixed) || !nSel ? ' disabled' : '') + '>' + (plan ? 'Đồng bộ vào môn' : 'Lưu môn này') + '</button></div></section>';
   }
   return h;
 }
+/* Ghép bài trong file với bài đã có của môn: cùng tên, hoặc cùng số bài ("Bài 3") thì coi là một bài */
+function mergePlan(chapters, oldChs) {
+  const used = new Set();
+  const find = (name) => {
+    const k = norm(name);
+    let m = oldChs.find((c) => !used.has(c.id) && norm(c.name) === k);
+    if (!m && shortName(name) !== name) { const sk = norm(shortName(name)); m = oldChs.find((c) => !used.has(c.id) && norm(shortName(c.name)) === sk); }
+    if (m) used.add(m.id);
+    return m ? m.id : '';
+  };
+  return chapters.map((c) => find(c.name));
+}
+const nImgQ = (p, I) => p.chapters.reduce((a, c) => a + c.qs.filter((q) => (q.imgs || []).some((n) => I.imgIds[n])).length, 0);
+function oldOf(I) { return S.subjects.find((x) => x.id === 's' + fnv(norm(I.name))); }
 function setParsed(text, name, extra) {
   const I = S.imp;
   const p = parseExam(text, name);
-  Object.assign(I, { parsed: p, name, busy: '', err: '', copy: true, fixAns: {} }, extra || {});
+  Object.assign(I, { parsed: p, name, busy: '', err: '', copy: true, fixAns: {}, chSel: {}, imgIds: [], imgData: {} }, extra || {});
+  const bad = new Set();
+  p.chapters.forEach((c) => { c.qs.forEach((q) => (q.imgs || []).forEach((n) => { if (!I.imgIds[n]) bad.add(n); })); (c.ps || []).forEach((x) => (x.imgs || []).forEach((n) => { if (!I.imgIds[n]) bad.add(n); })); });
+  if (bad.size) p.warn.push(bad.size + ' hình không đọc được (có thể là định dạng hình vẽ của Word), các câu đó sẽ thiếu hình.');
   if (!p.total && !p.need) { I.err = 'Chưa nhận ra câu hỏi nào. Mỗi bài cần dòng "Bài 1: …", mỗi câu bắt đầu bằng "Câu 1.", đáp án "A.", "B." và dòng "Đáp án: X."'; I.parsed = null; }
 }
 async function loadDrive() {
@@ -524,10 +672,33 @@ function loadScript(src) {
     document.head.appendChild(s);
   });
 }
-async function docxToText(buf) {
+async function docxToParts(buf) {
   if (!window.mammoth) await loadScript('https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js');
-  const out = await window.mammoth.extractRawText({ arrayBuffer: buf });
-  return out.value;
+  const m = window.mammoth, images = [];
+  let html = '';
+  try {
+    const out = await m.convertToHtml({ arrayBuffer: buf }, {
+      convertImage: m.images.imgElement((image) => image.read('base64').then((b64) => { images.push({ ct: image.contentType || 'image/png', b64 }); return { src: 'tda-img:' + (images.length - 1) }; })),
+    });
+    html = out.value;
+  } catch (e) { images.length = 0; }
+  /* Không có hình: dùng đường đọc chữ thuần như cũ */
+  if (!images.length) return { text: (await m.extractRawText({ arrayBuffer: buf })).value, images: [] };
+  return { text: htmlToText(html), images };
+}
+async function docxToText(buf) { return (await docxToParts(buf)).text; }
+async function prepareImages(images) {
+  const I = S.imp, byId = {}, ids = [];
+  for (let i = 0; i < images.length; i++) {
+    I.busy = 'Đang xử lý hình ' + (i + 1) + '/' + images.length + '…'; render(false);
+    let id = '';
+    try {
+      const d = await compressImage('data:' + images[i].ct + ';base64,' + images[i].b64);
+      if (d) { id = imgIdOf(d); byId[id] = d; S.img[id] = d; }
+    } catch (e) { id = ''; }
+    ids.push(id);
+  }
+  return { ids, byId };
 }
 async function drivePick(id, title, mime) {
   const I = S.imp;
@@ -536,9 +707,11 @@ async function drivePick(id, title, mime) {
   try {
     const f = { id, title, mimeType: mime };
     const r = await API.driveRead(f);
-    let text = r.text != null ? r.text : await docxToText(r.docx);
-    if (!parseExam(text, name).chapters.length && API.driveReadBinary) text = await docxToText((await API.driveReadBinary(f)).docx);
-    setParsed(text, name, { driveId: id, file: null });
+    let text = r.text, images = [];
+    if (text == null) { const pr = await docxToParts(r.docx); text = pr.text; images = pr.images; }
+    if (!parseExam(text, name).chapters.length && API.driveReadBinary) { const pr = await docxToParts((await API.driveReadBinary(f)).docx); text = pr.text; images = pr.images; }
+    const prep = await prepareImages(images);
+    setParsed(text, name, { driveId: id, file: null, imgIds: prep.ids, imgData: prep.byId });
   } catch (e) { I.busy = ''; I.err = errMsg(e, 'Không đọc được nội dung file này. Hãy thử chọn file từ máy tính, hoặc dán nội dung vào ô bên dưới.'); }
   render(false);
 }
@@ -546,8 +719,9 @@ async function onLocalFile(f) {
   const I = S.imp;
   I.busy = 'Đang đọc file…'; I.err = ''; render(false);
   try {
-    const text = await docxToText(await f.arrayBuffer());
-    setParsed(text, f.name.replace(/\.docx$/i, ''), { driveId: '', file: f });
+    const pr = await docxToParts(await f.arrayBuffer());
+    const prep = await prepareImages(pr.images);
+    setParsed(pr.text, f.name.replace(/\.docx$/i, ''), { driveId: '', file: f, imgIds: prep.ids, imgData: prep.byId });
   } catch (e) { I.busy = ''; I.err = 'Không đọc được file này. Hãy chọn file .docx hoặc dán nội dung vào ô bên dưới.'; }
   render(false);
 }
@@ -557,11 +731,41 @@ async function saveSubject() {
   const copyBox = $('#imp-copy');
   if (copyBox) I.copy = copyBox.checked;
   if (!name || !p) return;
-  const chs = packChapters(resolveFixes(p.chapters, I.fixAns));
-  const total = chs.reduce((a, c) => a + c.qs.length, 0);
-  if (!total) return;
   const sid = 's' + fnv(norm(name)), old = S.subjects.find((s) => s.id === sid);
-  const meta = { id: sid, name, createdAt: old ? old.createdAt : Date.now(), updatedAt: Date.now(), by: S.name, driveId: I.driveId || (old && old.driveId) || '', total, chapters: chs.map((c) => ({ id: c.id, name: c.name, n: c.qs.length })) };
+  const resolved = resolveFixes(p.chapters, I.fixAns).map((c) => Object.assign({}, c, { qs: c.qs.map((q) => Object.assign({}, q, { imgs: (q.imgs || []).map((n) => I.imgIds[n]).filter(Boolean) })), ps: (c.ps || []).map((x) => Object.assign({}, x, { imgs: (x.imgs || []).map((n) => I.imgIds[n]).filter(Boolean) })) }));
+  const hasQ = (c) => c.qs.some((q) => q.ans >= 0);
+  let chs, sum = null;
+  if (old && (I.mode || 'merge') === 'merge') {
+    I.busy = 'Đang đọc môn hiện có…'; render(false);
+    try { await loadChapters(old); } catch (e) { I.busy = ''; render(false); toast(errMsg(e, 'Chưa đọc được môn hiện có để đồng bộ.')); return; }
+    const plan = mergePlan(p.chapters, old.chapters), have = S.chap[old.id] || {};
+    const raw = [], ids = [], kept = {};
+    let upd = 0, add = 0, keep = 0;
+    old.chapters.forEach((m) => {
+      const k = plan.indexOf(m.id), cur = have[m.id];
+      if (k >= 0 && I.chSel[k] !== false && hasQ(resolved[k])) { raw.push(resolved[k]); ids.push(m.id); upd++; }
+      else if (cur) { raw.push({ name: cur.name, qs: [], ps: [] }); ids.push(m.id); kept[m.id] = cur; keep++; }
+    });
+    resolved.forEach((c, ci) => { if (!plan[ci] && I.chSel[ci] !== false && hasQ(c)) { raw.push(c); ids.push(''); add++; } });
+    chs = packChapters(raw);
+    let next = 0;
+    ids.forEach((x) => { const n = Number(String(x).replace(/\D/g, '')); if (n > next) next = n; });
+    chs.forEach((c, i) => { c.id = ids[i] || 'c' + (++next); if (kept[c.id]) { const k = kept[c.id]; c.name = k.name; c.qs = clone(k.qs); if (k.path) c.path = k.path.slice(); else delete c.path; if (k.ps) c.ps = clone(k.ps); else delete c.ps; } });
+    sum = { upd, add, keep };
+  } else chs = packChapters(resolved);
+  const total = chs.reduce((a, c) => a + c.qs.length, 0);
+  if (!total) { I.busy = ''; render(false); return; }
+  const need = [];
+  chs.forEach((c) => { const add = (x) => { if (I.imgData[x] && !need.includes(x)) need.push(x); }; c.qs.forEach((q) => (q.i || []).forEach(add)); (c.ps || []).forEach((x) => (x.i || []).forEach(add)); });
+  if (need.length) {
+    try {
+      I.busy = 'Đang kiểm tra hình trên máy chủ…'; render(false);
+      const have = new Set(await API.hasImages(need));
+      const up = need.filter((x) => !have.has(x));
+      for (let i = 0; i < up.length; i++) { I.busy = 'Đang tải hình lên ' + (i + 1) + '/' + up.length + '…'; render(false); await API.saveImage(up[i], I.imgData[up[i]]); }
+    } catch (e) { I.busy = ''; render(false); toast(errMsg(e, 'Chưa tải được hình lên. Hãy thử lại.')); return; }
+  }
+  const meta = { id: sid, name, createdAt: old ? old.createdAt : Date.now(), updatedAt: Date.now(), by: S.name, driveId: I.driveId || (old && old.driveId) || '', total, chapters: chs.map(chMeta) };
   I.busy = 'Đang lưu môn…'; render(false);
   try { await API.saveSubject(meta, chs); }
   catch (e) { I.busy = ''; render(false); toast(errMsg(e, 'Chưa lưu được môn này. Hãy kiểm tra quyền chỉnh sửa của bạn rồi thử lại.')); return; }
@@ -574,7 +778,7 @@ async function saveSubject() {
   S.imp = null;
   await refreshSubjects();
   go('home');
-  toast('Đã lưu môn "' + name + '" với ' + total + ' câu.' + note);
+  toast(sum ? 'Đã đồng bộ "' + name + '": cập nhật ' + sum.upd + ' bài, thêm ' + sum.add + ' bài, giữ nguyên ' + sum.keep + ' bài. Tổng ' + total + ' câu.' + note : 'Đã lưu môn "' + name + '" với ' + total + ' câu.' + note);
 }
 
 const views = { boot: () => '<div class="boot">Đang mở thư viện…</div>', nodb: viewNoDb, name: viewName, adminin: viewAdminLogin, home: viewHome, sub: viewSub, quiz: viewQuiz, result: viewResult, live: viewLive, reports: viewReports, edit: viewEdit, import: viewImport };
@@ -592,8 +796,9 @@ function render(scroll) {
   if (S.view === 'name' || S.view === 'adminin') { const i = $(S.view === 'name' ? '#nm' : '#ak'); if (i && scroll) i.focus(); }
 }
 function go(v) {
+  if (v === 'home' && S.view !== 'boot' && S.view !== 'quiz') refreshProg();
   if (S.view === 'live' && v !== 'live') stopLive();
-  S.view = v; S.confirmDel = null; S.confirmEnd = false;
+  S.view = v; S.confirmDel = null; S.confirmEnd = false; S.confirmDrop = false;
   if (v !== 'quiz') { clearInterval(timer); S.rpt = null; }
   render(true);
   if (v === 'quiz') { clearInterval(timer); timer = setInterval(tick, 1000); }
@@ -601,30 +806,125 @@ function go(v) {
 }
 
 /* ---------- Làm bài ---------- */
-function buildRun() {
+/* Các câu mà lần làm gần nhất của bạn là sai (câu đã làm đúng sau đó thì không còn tính) */
+function lastWrong(sid) {
+  const last = {};
+  (S.mine.runs || []).filter((r) => r.sid === sid).forEach((r) => {
+    (r.w || []).forEach((id) => { last[id] = 0; });
+    (r.r || []).forEach((id) => { last[id] = 1; });
+  });
+  return new Set(Object.keys(last).filter((id) => last[id] === 0));
+}
+function wrongInChapter(sid, cid) {
+  const c = (S.chap[sid] || {})[cid];
+  if (!c) return 0;
+  const w = lastWrong(sid);
+  return c.qs.filter((q) => w.has(q.id)).length;
+}
+function buildRun(only) {
   const sub = S.sub, cfg = S.cfg, chs = S.chap[sub.id] || {};
   const mk = (c, q) => {
     let idx = q.o.map((_, i) => i);
-    if (cfg.shuffleA && !q.s) idx = shuffle(idx);
-    return { id: q.id, cid: c.id, cn: c.name, q: q.q, o: idx.map((i) => q.o[i]), a: idx.indexOf(q.a), e: q.e || '', sp: !!q.s };
+    const fixed = q.s || (q.i && q.i.length);
+    if (cfg.shuffleA && !fixed) idx = shuffle(idx);
+    return mkItem(c, q, idx);
   };
   let items = [];
   if (cfg.mode === 'chapter') {
     sub.chapters.forEach((m) => {
       const c = chs[m.id];
-      if (!cfg.sel[m.id] || !c) return;
-      let qs = c.qs.slice();
-      if (cfg.shuffleQ) qs = shuffle(qs);
-      qs.forEach((q) => items.push(mk(c, q)));
+      if (only ? m.id !== only.cid : !cfg.sel[m.id]) return;
+      if (!c) return;
+      const qs = c.qs.filter((q) => !only || !only.ids || only.ids.has(q.id)).map((q) => mk(c, q));
+      (cfg.shuffleQ ? shuffleGroups(qs) : qs).forEach((x) => items.push(x));
     });
   } else {
     sub.chapters.forEach((m) => { const c = chs[m.id]; if (c) c.qs.forEach((q) => items.push(mk(c, q))); });
-    items = shuffle(items);
+    items = shuffleGroups(items);
     if (cfg.n !== 'all') items = items.slice(0, cfg.n);
   }
-  return { sid: sub.id, sname: sub.name, mode: cfg.mode, items, sel: items.map(() => -1), reported: {}, idx: 0, t0: Date.now() };
+  return { sid: sub.id, sname: sub.name, mode: cfg.mode, items, sel: items.map(() => -1), reported: {}, idx: 0, t0: Date.now(), rid: String(Date.now()) };
 }
 let hbTimer = null, hbLast = 0, hbPending = null;
+/* ---------- Phần đang làm dở: lưu trên máy và trên máy chủ để tiếp tục ở thiết bị khác ---------- */
+let progTimer = null, progFullFor = '', progChain = Promise.resolve();
+const progKey = () => 'tda.prog.' + (API.uid || '');
+function progPayload(r, full) {
+  const p = { rid: r.rid, sid: r.sid, sname: r.sname, mode: r.mode, sel: r.sel.map((x) => (x < 0 ? 'x' : String(x))).join(''), idx: r.idx, el: Date.now() - r.t0 };
+  if (full) p.items = r.items.map((it) => it.cid + '|' + it.id + '|' + (it.p || '')).join(';');
+  return p;
+}
+function saveProg(now) {
+  const r = S.run;
+  if (!r || !r.rid) return;
+  S.prog = Object.assign(progPayload(r, true), { t: Date.now() });
+  LS.set(progKey(), S.prog);
+  clearTimeout(progTimer); progTimer = null;
+  const send = () => {
+    progChain = progChain.then(async () => {
+      const rr = S.run;
+      if (!rr || !rr.rid) return;
+      try { await API.saveProgress(progPayload(rr, progFullFor !== rr.rid)); progFullFor = rr.rid; }
+      catch (e) {
+        if (e && e.code === 'no_progress') { try { await API.saveProgress(progPayload(rr, true)); progFullFor = rr.rid; } catch (e2) { /* thử lại ở lần lưu sau */ } }
+      }
+    }).catch(() => {});
+  };
+  if (now) send(); else progTimer = setTimeout(send, 1200);
+}
+function clearProg() {
+  clearTimeout(progTimer); progTimer = null; progFullFor = '';
+  S.prog = null;
+  LS.set(progKey(), null);
+  progChain = progChain.then(() => API.clearProgress()).catch(() => {});
+}
+async function loadProg() {
+  let remote, ok = true;
+  try { remote = await API.getProgress(); } catch (e) { ok = false; }
+  const local = LS.get(progKey(), null);
+  const best = ok ? remote : local;
+  S.prog = best && best.items && best.sid ? best : null;
+}
+function refreshProg() { loadProg().then(() => { if (S.view === 'home' || S.view === 'sub') render(false); }); }
+const progCount = (p) => ({ n: p.items.split(';').length, done: p.sel.replace(/x/g, '').length });
+function resumeHTML(p, mini) {
+  const c = progCount(p);
+  return '<section class="resume"><div><b>' + (mini ? 'Bạn đang làm dở môn này' : 'Đang làm dở: ' + esc(p.sname)) + '</b><p>' + (p.mode === 'exam' ? 'Thi thử' : 'Ôn theo bài') + ' · câu ' + (Number(p.idx) + 1) + '/' + c.n + ' · đã trả lời ' + c.done + ' · ' + agoShort(p.t || Date.now()) + '</p></div>' +
+    (S.confirmDrop ? '<div class="confirm"><span>Bỏ phần đang làm dở?</span><button class="btn danger" data-act="dropyes">Bỏ</button><button class="btn" data-act="dropno">Giữ lại</button></div>'
+      : '<div class="row"><button class="btn pri" data-act="resume">Tiếp tục làm</button><button class="btn ghost" data-act="drop">Bỏ phần này</button></div>') + '</section>';
+}
+async function resumeProg() {
+  const p = S.prog;
+  const sub = p && S.subjects.find((x) => x.id === p.sid);
+  if (!sub) { toast('Môn này không còn trong thư viện.'); return; }
+  S.sub = sub;
+  const sel0 = {};
+  sub.chapters.forEach((c) => { sel0[c.id] = true; });
+  S.cfg = { mode: 'chapter', sel: sel0, shuffleA: false, shuffleQ: false, n: 'all' };
+  S.loading = 'Đang tải đề…'; go('sub');
+  try { await loadChapters(sub); } catch (e) { S.loading = errMsg(e, 'Chưa tải được đề. Hãy tải lại trang.'); render(false); return; }
+  S.loading = '';
+  const items = [], sel = [];
+  p.items.split(';').forEach((tok, i) => {
+    const [cid, qid, perm] = tok.split('|');
+    const c = (S.chap[sub.id] || {})[cid], q = c && c.qs.find((x) => x.id === qid);
+    if (!q) return;
+    let idx = String(perm || '').split('').map(Number);
+    if (idx.length !== q.o.length || idx.some((x) => !(x >= 0 && x < q.o.length)) || new Set(idx).size !== idx.length) idx = q.o.map((_, k) => k);
+    items.push(mkItem(c, q, idx));
+    const ch = p.sel.charAt(i);
+    sel.push(ch && ch !== 'x' && Number(ch) < q.o.length ? Number(ch) : -1);
+  });
+  if (!items.length) { toast('Các câu của phần này không còn nữa.'); clearProg(); go('home'); return; }
+  S.run = { sid: sub.id, sname: sub.name, mode: p.mode === 'exam' ? 'exam' : 'chapter', items, sel, reported: {}, idx: Math.min(Number(p.idx) || 0, items.length - 1), t0: Date.now() - (Number(p.el) || 0), rid: p.rid || String(Date.now()) };
+  progFullFor = '';
+  S.panelOpen = desk(); go('quiz'); putLive({}, true); saveProg(true);
+}
+async function syncAccount() {
+  try { const m = await API.getMine(); S.mine = { runs: m.runs || [] }; } catch (e) { /* chưa có lịch sử */ }
+  await loadProg();
+}
+
 function putLive(extra, force) {
   const r = S.run;
   const base = r
@@ -648,16 +948,18 @@ function pick(k) {
   r.sel[r.idx] = k;
   render(false);
   putLive();
+  saveProg();
 }
 function move(i) {
   const r = S.run;
   if (i < 0 || i >= r.items.length) return;
-  r.idx = i; S.rpt = null; render(false); putLive();
+  r.idx = i; S.rpt = null; render(false); putLive(); saveProg();
   window.scrollTo(0, 0);
 }
 async function finish() {
   const r = S.run;
   clearInterval(timer);
+  clearProg();
   const secs = Math.round((Date.now() - r.t0) / 1000);
   let c = 0, ans = 0;
   const ch = {}, w = [], rr = [];
@@ -702,9 +1004,13 @@ app.addEventListener('click', async (ev) => {
     case 'savename': {
       const n = $('#nm').value.trim();
       if (!n) { toast('Hãy nhập tên của bạn.'); break; }
-      S.name = n; LS.set('tda.name', n); go('home'); break;
+      S.name = n; LS.set('tda.name', n); API.setName(n); S.prog = null; await syncAccount(); go('home'); break;
     }
     case 'rename': go('name'); break;
+    case 'resume': await resumeProg(); break;
+    case 'drop': S.confirmDrop = true; render(false); break;
+    case 'dropno': S.confirmDrop = false; render(false); break;
+    case 'dropyes': S.confirmDrop = false; clearProg(); render(false); break;
     case 'home': go('home'); break;
     case 'adminin': S.adminErr = ''; go('adminin'); break;
     case 'adminlogin': {
@@ -728,6 +1034,13 @@ app.addEventListener('click', async (ev) => {
     }
     case 'setmode': S.cfg.mode = v; render(false); break;
     case 'selall': S.sub.chapters.forEach((c) => { S.cfg.sel[c.id] = true; }); render(false); break;
+    case 'selgrp': {
+      const pre = t.dataset.pre;
+      const ms = S.sub.chapters.filter((m) => { const k = pathOf(m).join(SEP); return k === pre || k.startsWith(pre + SEP); });
+      const all = ms.every((m) => S.cfg.sel[m.id]);
+      ms.forEach((m) => { S.cfg.sel[m.id] = !all; });
+      render(false); break;
+    }
     case 'selnone': S.cfg.sel = {}; render(false); break;
     case 'setn': S.cfg.n = v === 'all' ? 'all' : Number(v); render(false); break;
     case 'scope':
@@ -740,7 +1053,7 @@ app.addEventListener('click', async (ev) => {
     case 'start': {
       const r = buildRun();
       if (!r.items.length) break;
-      S.run = r; S.panelOpen = desk(); go('quiz'); putLive({}, true); break;
+      S.run = r; S.panelOpen = desk(); go('quiz'); putLive({}, true); saveProg(true); break;
     }
     case 'pick': pick(i); break;
     case 'prev': move(S.run.idx - 1); break;
@@ -749,11 +1062,22 @@ app.addEventListener('click', async (ev) => {
     case 'end': S.confirmEnd = true; render(true); break;
     case 'endno': S.confirmEnd = false; render(false); break;
     case 'endyes': await finish(); break;
+    case 'one': {
+      if (!S.sub || !(S.chap[S.sub.id] || {})[id]) break;
+      let ids = null;
+      if (v === 'wrong') {
+        if (S.view === 'result' && S.res) { const R = S.res; ids = new Set(R.items.filter((it, k) => it.cid === id && R.sel[k] !== it.a).map((it) => it.id)); }
+        else ids = lastWrong(S.sub.id);
+      }
+      const r = buildRun({ cid: id, ids });
+      if (!r.items.length) { toast('Bài này chưa có câu nào sai.'); break; }
+      S.run = r; S.panelOpen = desk(); go('quiz'); putLive({}, true); saveProg(true); break;
+    }
     case 'redo': {
       const R = S.res;
       const items = R.items.filter((it, k) => R.sel[k] !== it.a).map((it) => Object.assign({}, it));
-      S.run = { sid: R.run.sid, sname: R.sname, mode: 'chapter', items, sel: items.map(() => -1), reported: {}, idx: 0, t0: Date.now() };
-      S.panelOpen = desk(); go('quiz'); putLive({}, true); break;
+      S.run = { sid: R.run.sid, sname: R.sname, mode: 'chapter', items, sel: items.map(() => -1), reported: {}, idx: 0, t0: Date.now(), rid: String(Date.now()) };
+      S.panelOpen = desk(); go('quiz'); putLive({}, true); saveProg(true); break;
     }
     case 'rpt': S.rpt = { idx: S.run.idx, reason: REASONS[0], note: '' }; render(false); break;
     case 'rptno': S.rpt = null; render(false); break;
@@ -786,7 +1110,7 @@ app.addEventListener('click', async (ev) => {
       const c = S.chap[S.sub.id][id], q = c.qs.find((x) => x.id === v);
       S.ed.cid = id; S.ed.qid = q.id; S.ed.draft = draftOf(q); S.ed.confirmDel = false; render(true); break;
     }
-    case 'edadd': S.ed.qid = null; S.ed.draft = { q: '', o: ['', '', '', ''], a: -1, e: '', s: false }; render(true); break;
+    case 'edadd': S.ed.qid = null; S.ed.draft = { q: '', o: ['', '', '', ''], a: -1, e: '', s: false, i: [] }; render(true); break;
     case 'edcancel': S.ed.draft = null; S.ed.qid = null; S.ed.confirmDel = false; if (S.ed.rep) go('reports'); else render(true); break;
     case 'edaddo': S.ed.draft.o.push(''); render(false); break;
     case 'edrmo': {
@@ -795,6 +1119,10 @@ app.addEventListener('click', async (ev) => {
       if (d.a === i) d.a = -1; else if (d.a > i) d.a--;
       render(false); break;
     }
+    case 'zoom': showZoom(t.currentSrc || t.src); break;
+    case 'imgretry': { const x = t.dataset.iid; if (x) wantImgs([x]); break; }
+    case 'edimgadd': $('#ed-img').click(); break;
+    case 'edimgrm': S.ed.draft.i.splice(i, 1); render(false); break;
     case 'edsave': await saveDraft(); break;
     case 'eddel': S.ed.confirmDel = true; render(false); break;
     case 'eddelno': S.ed.confirmDel = false; render(false); break;
@@ -811,6 +1139,7 @@ app.addEventListener('click', async (ev) => {
     case 'dpick': await drivePick(id, t.dataset.t, t.dataset.m); break;
     case 'pickfile': $('#imp-file').click(); break;
     case 'parsepaste': setParsed($('#imp-text').value, S.imp.name || 'Môn mới', { file: null, driveId: '' }); render(false); break;
+    case 'impmode': S.imp.mode = v; render(false); break;
     case 'savesub': await saveSubject(); break;
     default: break;
   }
@@ -818,7 +1147,10 @@ app.addEventListener('click', async (ev) => {
 app.addEventListener('change', (ev) => {
   const t = ev.target;
   if (t.id === 'imp-file' && t.files && t.files[0]) { onLocalFile(t.files[0]); t.value = ''; }
+  else if (t.id === 'ed-img' && t.files && t.files[0] && S.ed && S.ed.draft) { onEditImage(t.files[0]); t.value = ''; }
   else if (t.id === 'imp-copy') S.imp.copy = t.checked;
+  else if (t.id === 'imp-into') { const x = S.subjects.find((y) => y.id === t.value); if (x) { S.imp.name = x.name; S.imp.mode = 'merge'; render(false); } }
+  else if (t.dataset && t.dataset.impch !== undefined) { S.imp.chSel[t.dataset.impch] = t.checked; render(false); }
   else if (t.dataset && t.dataset.fix) { S.imp.fixAns[t.dataset.fix] = Number(t.value); render(false); }
   else if (t.id === 'rpt-reason' && S.rpt) S.rpt.reason = t.value;
   else if (t.id === 'ed-ch') { S.ed.cid = t.value; render(false); }
@@ -835,7 +1167,7 @@ app.addEventListener('input', (ev) => {
   else if (t.id === 'ed-filter') { S.ed.filter = t.value; const l = $('#edlist'); if (l) l.innerHTML = edListHTML(); }
   else if (t.dataset && t.dataset.ed && S.ed && S.ed.draft) {
     const d = S.ed.draft, k = t.dataset.ed;
-    if (k === 'q') d.q = t.value; else if (k === 'e') d.e = t.value; else if (k === 'o') d.o[Number(t.dataset.k)] = t.value;
+    if (k === 'pt') d.pt = t.value; else if (k === 'q') d.q = t.value; else if (k === 'e') d.e = t.value; else if (k === 'o') d.o[Number(t.dataset.k)] = t.value;
   }
 });
 app.addEventListener('toggle', (ev) => {
@@ -843,6 +1175,7 @@ app.addEventListener('toggle', (ev) => {
 }, true);
 document.addEventListener('keydown', (ev) => {
   const tag = (ev.target.tagName || '').toLowerCase();
+  if (ev.key === 'Escape') { document.querySelectorAll('.lb').forEach((e) => e.remove()); return; }
   if (ev.key === 'Enter' && ev.target.id === 'nm') { ev.preventDefault(); const b = $('[data-act="savename"]'); if (b) b.click(); return; }
   if (ev.key === 'Enter' && ev.target.id === 'ak') { ev.preventDefault(); const b = $('[data-act="adminlogin"]'); if (b) b.click(); return; }
   if (S.view !== 'quiz' || ev.ctrlKey || ev.metaKey || ev.altKey || tag === 'input' || tag === 'textarea' || tag === 'select') return;
@@ -852,7 +1185,7 @@ document.addEventListener('keydown', (ev) => {
   else if (k === 'ArrowRight') { move(r.idx + 1); ev.preventDefault(); }
   else if (k === 'ArrowLeft') { move(r.idx - 1); ev.preventDefault(); }
 });
-window.addEventListener('pagehide', () => { if (S.run) putLive({ st: 'idle' }, true); });
+window.addEventListener('pagehide', () => { if (S.run) { putLive({ st: 'idle' }, true); saveProg(true); } });
 
 /* ---------- Khởi động ---------- */
 (async () => {
@@ -860,7 +1193,7 @@ window.addEventListener('pagehide', () => { if (S.run) putLive({ st: 'idle' }, t
   const info = await API.init();
   if (!info.ok) { S.fatal = info; S.view = 'nodb'; render(true); return; }
   D.admin = !!info.admin; D.canWrite = info.canWrite !== false;
-  try { const m = await API.getMine(); S.mine = { runs: m.runs || [] }; } catch (e) { /* chưa có lịch sử */ }
+  if (S.name) { API.setName(S.name); await syncAccount(); }
   go(S.name ? 'home' : 'name');
 })();
 })();
