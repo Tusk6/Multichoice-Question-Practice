@@ -307,6 +307,9 @@ section + section { margin-top: 22px; }
 .psg summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 details.psg[open] summary { margin-bottom: 8px; }
 @media (max-width: 560px) { .psg-t { max-height: 36vh; font-size: 1rem; } }
+.redo-l { display: inline-block; margin: -2px 0 8px; font-size: .78rem; }
+.confirm.box.sm { margin: 0 0 8px; padding: 8px 10px; font-size: .82rem; }
+.btn.danger.sm, .btn.sm { min-height: 32px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 
 .chlab { display: flex; align-items: center; gap: 12px; flex: 1 1 200px; min-width: 0; cursor: pointer; }
